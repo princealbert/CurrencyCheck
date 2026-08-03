@@ -1,0 +1,17 @@
+{
+  "name": "currency-codex-minigame",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "货币图鉴·对对碰（纯 TypeScript + Canvas 2D，无 Cocos，微信小游戏运行时）",
+  "scripts": {
+    "dev": "node build.mjs web && node serve.mjs",
+    "build:web": "node build.mjs web",
+    "build:wx": "node build.mjs wx",
+    "build:all": "node build.mjs all",
+    "test": "node src/core/__selftest__.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.23.0"
+  }
+}

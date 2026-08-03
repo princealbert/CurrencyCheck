@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>货币图鉴 · 配对原型（MVP）</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app" id="app">
+
+    <!-- ============ S1 Hub ============ -->
+    <section id="view-hub" class="view">
+      <header class="hub-head">
+        <h1 class="title">货币图鉴</h1>
+        <p class="subtitle">配对 · 自动收藏 · 图鉴</p>
+      </header>
+
+      <div class="hub-progress-card">
+        <div class="progress-num" id="hub-progress">已解锁 0/16</div>
+        <div class="progress-best" id="hub-best">最高分 0</div>
+      </div>
+
+      <div class="form-select" id="form-select" role="group" aria-label="选择配对形态">
+        <button class="seg seg-active" data-form="coin" type="button">硬币局</button>
+        <button class="seg" data-form="note" type="button">纸币局</button>
+      </div>
+
+      <nav class="hub-actions">
+        <button id="btn-start" class="btn btn-primary" type="button">开始配对</button>
+        <button id="btn-codex" class="btn btn-secondary" type="button">图鉴</button>
+      </nav>
+
+      <p class="compliance-note">占位原型 · 仅几何母题 + 颜色 + ISO · 无真实钞币图 · 硬币/纸币双形态</p>
+    </section>
+
+    <!-- ============ S2 配对 ============ -->
+    <section id="view-pair" class="view" hidden>
+      <div class="topbar">
+        <button id="btn-pair-back" class="btn btn-ghost" type="button">← Hub</button>
+        <div class="stats">
+          <span class="stat">得分 <b id="score">0</b></span>
+          <span class="stat">连击 <b id="combo">0</b></span>
+        </div>
+        <button id="btn-pair-restart" class="btn btn-ghost" type="button">重开</button>
+      </div>
+
+      <div id="game-area" class="game-area">
+        <div id="board" class="board" aria-label="配对棋盘"></div>
+
+        <!-- 胜利态（覆盖在棋盘上方） -->
+        <div id="win" class="win" hidden>
+          <div class="win-card">
+            <h2 class="win-title">本局完成！</h2>
+            <p class="win-score">本局得分 <b id="win-score">0</b> · 最高 <b id="win-best">0</b></p>
+            <p class="win-sub">本局新解锁：</p>
+            <ul id="win-unlocks" class="win-unlocks"></ul>
+            <div class="win-actions">
+              <button id="btn-win-again" class="btn btn-primary" type="button">再玩一局</button>
+              <button id="btn-win-hub" class="btn btn-secondary" type="button">返回 Hub</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- note-mode 竖屏旋转引导遮罩（仅竖屏 + note 形态显示） -->
+        <div id="note-rotate-hint" class="note-rotate-hint" aria-hidden="true">
+          <div class="rotate-hint-card">
+            <div class="rotate-hint-icon" aria-hidden="true">↻</div>
+            <p class="rotate-hint-title">请旋转设备至横屏</p>
+            <p class="rotate-hint-sub">「纸币局」为横向长方牌，需横屏体验；桌面可拉宽窗口或用「横屏预览」</p>
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-landscape-preview" class="btn btn-ghost float-preview" type="button">横屏预览</button>
+    </section>
+
+    <!-- ============ S3 图鉴 ============ -->
+    <section id="view-codex" class="view" hidden>
+      <div class="topbar">
+        <button id="btn-codex-back" class="btn btn-ghost" type="button">← Hub</button>
+        <div class="stats">
+          <span class="stat">收集进度 <b id="codex-progress">0/16</b></span>
+        </div>
+        <span class="topbar-spacer"></span>
+      </div>
+      <div id="codex" class="codex"></div>
+    </section>
+
+    <!-- ============ S5 货币详情（纯阅读态，由 S3 已解锁条目进入） ============ -->
+    <section id="view-detail" class="view" hidden>
+      <div class="topbar">
+        <button id="btn-detail-back" class="btn btn-ghost" type="button">← 图鉴</button>
+        <div class="stats"><span class="stat">货币详情</span></div>
+        <span class="topbar-spacer"></span>
+      </div>
+      <div id="detail" class="detail"></div>
+    </section>
+
+  </main>
+
+  <!-- 数据先于逻辑加载 -->
+  <script src="data.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>

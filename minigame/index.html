@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <title>货币图鉴 · 对对碰</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #000;            /* 信箱黑边：竖屏预览在窗口中上下/左右留白 */
+        overflow: hidden;
+        -webkit-tap-highlight-color: transparent;
+        /* body 作为 flex 容器，把 #game 在窗口中居中（配合 browser.ts 的 contain 缩放） */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #game {
+        display: block;
+        touch-action: none;
+        /* 实际显示尺寸由 src/platform/browser.ts resize() 按 contain 计算并写入
+           style.width / style.height；此处不写死，避免拉伸变形 */
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <script type="module" src="dist/game.js"></script>
+  </body>
+</html>

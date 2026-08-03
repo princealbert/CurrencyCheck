@@ -1,0 +1,23 @@
+# ===== secrets =====
+.env
+*.local
+
+# ===== tool / agent state =====
+.workbuddy/
+
+# ===== separate Cocos project (has its own .git) =====
+CurrencyCheck/
+
+# ===== build outputs =====
+minigame/dist/
+minigame/wx-dist/
+minigame/node_modules/
+minigame/.tmp-itest/
+
+# ===== CDN remote assets (generated, served from CDN, not in repo) =====
+assets/remote/
+minigame/assets/remote/
+
+# ===== OS / editor cruft =====
+.DS_Store
+Thumbs.db

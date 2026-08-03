@@ -1,0 +1,528 @@
+/* ============================================================
+ * styles.css — 货币图鉴 MVP 原型
+ * 品牌调性：Soft Blur Pastel（奶油白 / 陶土红 / 青绿 / 金）
+ * 合规：仅几何母题 + 颜色 + ISO 文本，无真实钞币图、无国旗。
+ * 可访问性：四层识别码相互冗余，色弱下靠 形状 + ISO + 面额 仍 100% 可辨。
+ * ============================================================ */
+
+:root {
+  --cream:      #F8F5F0;
+  --cream-2:    #EFE7DA;
+  --ink:        #3A3A38;
+  --ink-soft:   #6B675F;
+  --terracotta: #D89575;
+  --teal:       #87A878;
+  --gold:       #E0B15E;
+  --line:       #E2D9CB;
+
+  /* 区域双编码色（GDD §0.5） */
+  --amer: #E0B15E;
+  --euro: #5B8FB0;
+  --asia: #87A878;
+
+  --radius: 16px;
+  --flip-ms: 280ms; /* ≤300ms 翻牌动画 */
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 移动端优先：居中容器，max-width ≈ 420px */
+.app {
+  max-width: 420px;
+  margin: 0 auto;
+  min-height: 100vh;
+  /* R1：基础安全区内边距（竖屏/横屏通用，规避刘海/手势区遮挡；
+     配合 <meta viewport-fit="cover"> 生效。真机横屏 playtest 为发布前事项，本环境无法真机验证。 */
+  padding:
+    max(16px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+}
+/* note-mode 需要更宽容器容纳 4 列 2:1 宽牌；横屏额外保证左右安全区 */
+.app.mode-note {
+  max-width: 820px;
+  padding-left:  max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+}
+
+[hidden] { display: none !important; }
+
+.view { flex: 1; display: flex; flex-direction: column; gap: 16px; }
+
+/* ---------- 通用按钮 ---------- */
+.btn {
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 18px;
+  min-height: 48px;            /* ≥44px 可点区域 */
+  cursor: pointer;
+  transition: transform .08s ease, filter .15s ease;
+  color: #fff;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary   { background: var(--teal); }
+.btn-secondary { background: var(--terracotta); }
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1.5px solid var(--line);
+  min-height: 44px;            /* R1：≥44px 可点区域（原 40px） */
+  padding: 8px 14px;
+  font-size: 14px;
+}
+
+/* ---------- S1 Hub ---------- */
+.hub-head { text-align: center; padding-top: 24px; }
+.title { font-size: 30px; margin: 0; letter-spacing: 2px; }
+.subtitle { color: var(--ink-soft); margin: 6px 0 0; font-size: 14px; }
+
+.hub-progress-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+  box-shadow: 0 2px 0 rgba(0,0,0,0.03);
+}
+.progress-num { font-size: 20px; font-weight: 700; }
+.progress-best { color: var(--ink-soft); font-size: 13px; margin-top: 4px; }
+
+.hub-actions { display: flex; flex-direction: column; gap: 12px; }
+.compliance-note { text-align: center; color: var(--ink-soft); font-size: 12px; margin: 8px 0 0; }
+
+/* ---------- Hub 形态选择（分段开关） ---------- */
+.form-select {
+  display: flex;
+  gap: 8px;
+  background: var(--cream-2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 5px;
+}
+.seg {
+  flex: 1;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  padding: 10px;
+  min-height: 44px;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.seg-active {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* ---------- 顶栏（配对 / 图鉴共用） ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.topbar-spacer { width: 64px; }   /* 对齐用，与返回按钮等宽 */
+.stats { display: flex; gap: 14px; font-size: 14px; color: var(--ink-soft); }
+.stats b { color: var(--ink); font-size: 16px; }
+
+/* ---------- S2 棋盘 ---------- */
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 4px;
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.app.mode-note .board { max-width: 760px; }
+
+/* 配对区容器（横屏预览旋转作用于此） */
+.game-area { position: relative; }
+
+/* 双物理形态：coin=圆牌(1:1) / note=长方牌(2:1) */
+.card.card--coin { aspect-ratio: 1 / 1; }
+.card.card--note { aspect-ratio: 2 / 1; }   /* 提权压过 .card 的 1/1，否则被后者覆盖回正方形 */
+.card--coin .token-face { border-radius: 50%; }   /* 圆牌呼应硬币 */
+.card--note .token-face { border-radius: 10px; }   /* 长方牌呼应纸币 */
+
+.card {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  aspect-ratio: 1 / 1;     /* 默认正方形卡（coin） */
+  cursor: pointer;
+  perspective: 700px;      /* 3D 翻转 */
+}
+
+.card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform var(--flip-ms) ease;
+}
+.card.flipped .card-inner { transform: rotateY(180deg); }
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card-back {
+  background: var(--cream-2);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+}
+.back-emblem {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--gold);
+  opacity: 0.55;
+}
+.card-front { transform: rotateY(180deg); background: transparent; }
+
+/* ---------- 令牌面（物理形态 + 四层识别码载体） ---------- */
+.token-face {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--region-color, var(--gold)); /* 区域色「外框带」，由内联覆盖 */
+  overflow: hidden;
+}
+.token-inner {
+  position: absolute;
+  inset: 7px;                       /* 形成区域色边框带 */
+  background: var(--cream);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px;
+  overflow: hidden;
+}
+
+/* 中部容器：母题色带 + ISO（coin 竖排居中 / note 横排中） */
+.token-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex: 1 1 auto;        /* 占据剩余空间，使子元素高度可确定（母题色块 40% 生效） */
+  min-width: 0;
+}
+
+/* 层① 区域形状 → 角落小徽标（与卡形严格区分，不误读为卡片）
+ * B1：所有徽标加中性圆形衬底（circle），洲形状绘于圆衬底内部。
+ *   无论 amer 的 rounded_rect 还是其他形状，眼睛读到的是「圆点里嵌一个形状」，
+ *   与卡片外框（圆牌/长方牌）语汇分离；coin / note 双形态共用同款圆衬底。 */
+.region-badge {
+  position: absolute;
+  height: 18%;                     /* ≈ 卡片短边 18% */
+  aspect-ratio: 1 / 1;
+  background: rgba(255,255,255,0.92);   /* 中性圆衬底填充 */
+  border: 1px solid var(--line);          /* 中性描边，与卡形分离 */
+  border-radius: 50%;                     /* 圆形容器 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.03);
+}
+.region-badge .badge-shape {
+  width: 58%;                      /* 洲形状绘于圆衬底内部 */
+  height: 58%;
+  background: var(--region-color, var(--gold));   /* 洲色，保留颜色通道（色弱外） */
+}
+.card--coin .region-badge { top: 6%; left: 50%; transform: translateX(-50%); } /* 12 点钟盘缘 */
+.card--note .region-badge { top: 6%; right: 5%; }                             /* 右上角（竖排态保留；横排时下方覆盖为流入左侧） */
+
+/* 层③ ISO 码（无歧义身份，文字通道，色弱友好） */
+.layer-iso {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--ink);
+  line-height: 1;
+}
+/* 层② 母题色（币种气质，signature 色块） */
+.layer-chip {
+  height: 40%;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.35);
+}
+.layer-chip svg { width: 70%; height: 70%; display: block; }
+/* 层④ 面额（层级，可读数字通道） */
+.layer-denom {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1;
+}
+
+/* ===== B2：note 宽牌横排布局（利用 2:1 宽度把关键文字做大） =====
+ * 左=区域徽标（圆衬底）→ 中=母题色带 + ISO（放大加粗）→ 右=面额。
+ * coin 圆牌仍走上方默认居中布局，不受影响。 */
+.card--note .token-inner {
+  flex-direction: row;              /* 横排 */
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px;
+}
+.card--note .region-badge {        /* 徽标进入 flex 流，居左；圆衬底不变 */
+  position: static;
+  top: auto; right: auto; transform: none;
+  flex: 0 0 auto;
+}
+.card--note .token-center {        /* 中部：母题色带 + ISO 横排，占据剩余空间 */
+  flex-direction: row;
+  align-self: stretch;             /* 拉伸至卡高，使母题色块 40% 尺寸生效 */
+  justify-content: center;
+  gap: 8px;
+}
+.card--note .layer-iso {           /* ISO 放大到 16–18px，加粗 */
+  font-size: 17px;
+  font-weight: 700;
+}
+.card--note .layer-denom {         /* 面额 14–16px，含 denom + symbol */
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* matched：常驻高亮 */
+.card.matched .token-face { box-shadow: 0 0 0 3px var(--teal); }
+.card.matched .token-inner { background: #FBFDF9; }
+
+/* 错配抖动反馈（≤800ms 后翻回） */
+.card.shake .card-inner { animation: shake 0.4s ease; }
+@keyframes shake {
+  0%,100% { transform: rotateY(180deg) translateX(0); }
+  20%     { transform: rotateY(180deg) translateX(-5px); }
+  40%     { transform: rotateY(180deg) translateX(5px); }
+  60%     { transform: rotateY(180deg) translateX(-4px); }
+  80%     { transform: rotateY(180deg) translateX(4px); }
+}
+
+/* ---------- 胜利态 ---------- */
+.win { margin-top: 12px; }
+.win-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 4px 0 rgba(0,0,0,0.04);
+}
+.win-title { margin: 0 0 8px; font-size: 22px; color: var(--teal); }
+.win-score { margin: 0 0 12px; color: var(--ink-soft); }
+.win-sub { margin: 0 0 8px; font-weight: 600; }
+.win-unlocks { list-style: none; padding: 0; margin: 0 0 16px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.win-unlocks li {
+  background: var(--cream-2);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.win-actions { display: flex; gap: 10px; justify-content: center; }
+.win-actions .btn { flex: 1; }
+
+/* ---------- note-mode 横屏引导 + 强制横屏预览 ---------- */
+.note-rotate-hint {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: none;                 /* 默认隐藏，竖屏 + note 形态时由媒体查询显示 */
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(248,245,240,0.85);
+  border-radius: 12px;
+  text-align: center;
+}
+/* 竖屏（手机竖持 / 窄窗口）进入 note 形态 → 提示旋转；开启预览后隐藏 */
+@media (orientation: portrait) {
+  .app.mode-note:not(.force-landscape) .note-rotate-hint { display: flex; }
+}
+.rotate-hint-card { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.rotate-hint-icon { font-size: 40px; line-height: 1; font-weight: 700; color: var(--terracotta); }
+.rotate-hint-title { font-size: 18px; font-weight: 700; margin: 4px 0 0; }
+.rotate-hint-sub { font-size: 13px; color: var(--ink-soft); margin: 0; max-width: 280px; }
+
+/* 横屏预览开关（仅 note 形态显示；开启后旋转 .game-area 模拟横屏） */
+.float-preview {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 120;
+  display: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+.app.mode-note #btn-landscape-preview { display: block; }
+
+.app.force-landscape { overflow: hidden; }
+.app.force-landscape .game-area {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: min(96vh, 760px);
+  height: min(96vw, 520px);
+  transform: translate(-50%, -50%) rotate(90deg);  /* 仅预览，不影响逻辑 */
+  background: var(--cream);
+  padding: 16px;
+  border-radius: 18px;
+  z-index: 40;
+  overflow: auto;
+}
+
+/* ---------- S3 图鉴（双形态槽） ---------- */
+.codex { display: flex; flex-direction: column; gap: 18px; }
+.shelf { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+.shelf-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-weight: 700;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--line);
+}
+.shelf-head .shelf-count { font-size: 13px; color: var(--ink-soft); font-weight: 600; }
+
+.shelf-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+.codex-entry { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.codex-shape { width: 72px; height: 72px; }
+.codex-meta { min-height: 34px; }
+.codex-name { font-weight: 700; font-size: 14px; }
+.codex-anchor {
+  font-size: 11px;
+  color: var(--ink-soft);
+  line-height: 1.35;
+  max-width: 150px;
+}
+
+/* 双形态槽：coin / note 各一，未解锁显灰色剪影 + 「?」 */
+.codex-slots {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+.codex-slot { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.slot-label { font-size: 11px; color: var(--ink-soft); font-weight: 600; }
+
+.codex-token { position: relative; }
+.codex-token--coin { width: 58px; height: 58px; }
+.codex-token--note { width: 84px; height: 42px; }
+.codex-token--coin .token-face { border-radius: 50%; }
+.codex-token--note .token-face { border-radius: 8px; }
+
+.token-face.locked-silhouette {
+  background: #BCB6AB !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 未解锁：灰色剪影 + 「?」，隐藏 ISO / 真实内容 */
+.region-shape.locked-shape { background: #BCB6AB !important; }
+.region-shape.locked-shape .shape-inner { background: #EDEAE3; }
+.layer-q { font-size: 26px; font-weight: 800; color: var(--ink-soft); }
+.codex-entry.locked .codex-name { color: var(--ink-soft); font-weight: 600; }
+
+/* ---------- 图鉴条目可点入 S5（B3） ---------- */
+.codex-entry--clickable { cursor: pointer; transition: transform .08s ease; }
+.codex-entry--clickable:active { transform: scale(0.98); }
+.codex-entry.locked { cursor: default; }
+
+/* ==================== B3：S5 货币详情页（纯阅读态） ==================== */
+.detail { display: flex; flex-direction: column; gap: 16px; }
+.detail-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.detail-head { text-align: center; }
+.detail-name { font-size: 22px; font-weight: 700; }
+.detail-id { color: var(--ink-soft); font-size: 14px; margin-top: 4px; }
+
+.detail-section { display: flex; flex-direction: column; }
+.detail-section-title {
+  font-size: 13px; font-weight: 700; color: var(--ink-soft);
+  letter-spacing: 1px; margin-bottom: 8px;
+}
+
+/* 四层识别码展示区（与配对卡视觉一致：圆衬底徽标 + 母题色块 + ISO + 面值） */
+.detail-layers {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+.dl-item { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.dl-label { font-size: 11px; color: var(--ink-soft); font-weight: 600; }
+.dl-iso { font-size: 20px; font-weight: 800; color: var(--ink); }
+.dl-denom { font-size: 16px; font-weight: 800; color: var(--ink); }
+/* 四层区内复用元素：徽标流入居中、母题色块显式尺寸 */
+.detail-layers .region-badge {
+  position: static; top: auto; right: auto; transform: none;
+  height: 42px; flex: 0 0 auto;
+}
+.detail-layers .layer-chip { width: 42px; height: 42px; aspect-ratio: auto; }
+
+/* 现实锚小字块 */
+.detail-anchor { background: var(--cream-2); border-radius: 10px; padding: 12px; }
+.detail-anchor-text { font-size: 13px; color: var(--ink); line-height: 1.5; }
+
+/* 双形态槽（复用 .codex-slots / .codex-slot / .codex-token） */
+.detail-slots { display: flex; gap: 14px; justify-content: center; }
+
+/* 文化/历史占位 */
+.detail-culture-text { font-size: 13px; color: var(--ink); line-height: 1.6; margin: 0; }
+.detail-culture-note { font-size: 11px; color: var(--ink-soft); margin: 6px 0 0; }
+
+.detail-back { align-self: center; min-width: 160px; }

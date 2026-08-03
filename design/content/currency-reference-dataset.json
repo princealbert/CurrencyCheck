@@ -1,0 +1,499 @@
+{
+  "_compliance_notice": "本文件为内部调研参考资料集（Reference-only）。仅含结构化文本元数据与来源 URL，绝不内嵌或下载任何真实钞币/硬币图像二进制；内容不入库、不进游戏。游戏 ship 的全部美术均走 Seedream AI 风格化原创几何母题生成，严禁真实钞币图样/国旗/防伪元素。real_color_hex 字段为真实钞券主色近似（现实锚，仅供核对母题色相），与游戏内粉彩签名色（signature_color）不同，不可混淆使用。",
+  "meta": {
+    "title": "Currency Reference Dataset (货币参考资料集)",
+    "project": "微信小游戏《货币图鉴·对对碰》",
+    "author": "文策渊 (Vince Coyer)",
+    "generated": "2026-07-29",
+    "source_policy": "reference-only URLs; no image binaries downloaded",
+    "currency_count": 8,
+    "denomination_count": 8,
+    "coverage": "obverse + reverse + latest_series + 1-2 historical versions + educational_facts + references, for all 8 currencies",
+    "schema_version": "1.0",
+    "motif_categories": [
+      "portrait",
+      "architecture",
+      "animal",
+      "landscape"
+    ],
+    "regions": [
+      "amer",
+      "euro",
+      "asia_afr"
+    ],
+    "notes": "coin_form_factor 在游戏中为抽象风格化令牌；本 ship 的 8 个面值绝大多数无对应面值的流通硬币，故 coin 形态不对应任何真实硬币图案。"
+  },
+  "currencies": [
+    {
+      "iso": "USD",
+      "region": "amer",
+      "name_zh": "美元",
+      "name_en": "United States Dollar",
+      "country": "美国 (United States)",
+      "shipped_denomination": {
+        "denom": "100",
+        "denom_symbol": "$",
+        "form_factor_in_game": [
+          "coin",
+          "note"
+        ],
+        "obverse": {
+          "design_desc": "本杰明·富兰克林人像居中（2013 改版去椭圆边框、放大、无框化）；左右联邦储备/财政部印章；两处序列号；右下金色大'100'；衣领'USA 100'微缩印刷；羽毛笔与墨水池（铜色变光钟，铜→绿）；左侧竖向安全线（紫外呈粉红，含'USA 100'）；EURion 防复印圆点。",
+          "main_color_hex": "#2E6B40",
+          "motif_category": "portrait",
+          "motif_instance": "本杰明·富兰克林人像"
+        },
+        "reverse": {
+          "design_desc": "独立厅（Independence Hall）背面景观居中；大型金色'100'便于视障辨认；'IN GOD WE TRUST'。",
+          "main_color_hex": "#2E6B40",
+          "motif_category": "architecture",
+          "motif_instance": "独立厅（建筑）"
+        },
+        "latest_series": {
+          "name": "Series 2009A / 2013 新版联邦储备券 (Federal Reserve Note)",
+          "year": 2013
+        },
+        "historical": [
+          {
+            "year": 1996,
+            "vs_latest_diff": "自 1929 年以来首次大幅改版：放大富兰克林、加水印、右下光变墨（绿→黑）；2013 进一步去边框、加蓝色 3D 安全丝带、墨水池铜色变光钟（铜→绿）、金色大'100'、更强微缩印刷。"
+          },
+          {
+            "year": 1928,
+            "vs_latest_diff": "1929 标准化小尺寸起统一富兰克林+独立厅，人像置于椭圆边框内，印章/序列号有红封/绿封变体；与 2013 在边框与防伪层级上差异巨大，为现代美元视觉起点。"
+          }
+        ],
+        "educational_facts": {
+          "person_or_subject": "本杰明·富兰克林",
+          "why_famous": "开国元勋、发明家、出版家、外交家；美钞上唯一非总统头像。",
+          "cultural_meaning": "绿色自 1861 年南北战争'greenback'起成美钞背面恒绿主调，是现实认钞最强线索。",
+          "trivia": "100 美元是流通中最大面额；绰号 greenback 源于背面绿墨；3D 安全丝带为当今最难仿制防伪之一。"
+        }
+      },
+      "coin_form_note": "美国无 $100 流通硬币（流通硬币止于 $1）。游戏内 coin 令牌为抽象风格化，不对应真实硬币。",
+      "game_stylization_anchor": {
+        "signature_color": "#4E7A6B",
+        "motif_category": "portrait",
+        "motif_label": "人像圆章",
+        "note": "来自 src/data/currencies.ts，粉彩化海绿，非真实色。"
+      },
+      "references": [
+        "https://www.uscurrency.gov/es/denominaciones/100",
+        "https://en.wikipedia.com/wiki/United_States_one-hundred-dollar_bill"
+      ]
+    },
+    {
+      "iso": "BRL",
+      "region": "amer",
+      "name_zh": "巴西雷亚尔",
+      "name_en": "Brazilian Real",
+      "country": "巴西 (Brazil)",
+      "shipped_denomination": {
+        "denom": "10",
+        "denom_symbol": "R$",
+        "form_factor_in_game": [
+          "coin",
+          "note"
+        ],
+        "obverse": {
+          "design_desc": "共和国女神像（Effigy of the Republic，雕塑化寓言形象）居中；'REPÚBLICA FEDERATIVA DO BRASIL'；左下'10 REAIS'与右上大号数字；右下视障触觉标记（两道竖条）。",
+          "main_color_hex": "#B3201F",
+          "motif_category": "pattern",
+          "motif_instance": "共和国女神雕塑像"
+        },
+        "reverse": {
+          "design_desc": "绿翅金刚鹦鹉（Green-winged Macaw / Ara chlorepterus）栖于枝叶间，另有两只飞翔鹦鹉；'ARARA DEZ REAIS'；水印金刚鹦鹉+电铸'10'。",
+          "main_color_hex": "#B3201F",
+          "motif_category": "animal",
+          "motif_instance": "绿翅金刚鹦鹉 (Arara)"
+        },
+        "latest_series": {
+          "name": "第二家族系列 (Segunda Família / Second Family)",
+          "year": 2012
+        },
+        "historical": [
+          {
+            "year": 1994,
+            "vs_latest_diff": "前代第一家族系列同为'正面共和国女神 + 反面巴西动物'主题（R$10 已用鹦鹉类鸟类）；第二家族 2010-2012 焕新，新增 SPARK Live 滚动条变色面额（绿→蓝）、全息条、视障触觉条，主色精炼为绯红/玫瑰。"
+          },
+          {
+            "year": 2020,
+            "vs_latest_diff": "200 雷亚尔扩展最高面额（绿→蓝滚动条），证明家族持续增长；R$10 概念不变，可作'同币历史演变'内容示例。"
+          }
+        ],
+        "educational_facts": {
+          "person_or_subject": "绿翅金刚鹦鹉 (Ara chlorepterus)",
+          "why_famous": "体型最大的鹦鹉之一，红身绿翼，原产巴西及拉美；巴西生物多样性象征。",
+          "cultural_meaning": "现钞统一'正面共和国女神 + 反面本土动物'母题，礼赞生物多样性。",
+          "trivia": "'real'葡语意为'皇家/真实'；雷亚尔于 1994 年'雷亚尔计划'取代恶性通胀旧币。"
+        }
+      },
+      "coin_form_note": "巴西流通硬币为 1/5/10/25/50 分与 R$1，无 R$10 硬币。游戏内 coin 令牌为抽象风格化。旧档曾误写 R$10=跳羚，跳羚实为南非硬币图案，已更正为金刚鹦鹉。",
+      "game_stylization_anchor": {
+        "signature_color": "#C77B7B",
+        "motif_category": "animal",
+        "motif_label": "极简动物剪影",
+        "note": "来自 src/data/currencies.ts，粉彩化灰玫红，非真实色。"
+      },
+      "references": [
+        "https://www.bcb.gov.br/ingles/Mecir/cedulas/cedcomum.asp",
+        "https://banknotedb.com/10-reais-2010-355/",
+        "https://en.numista.com/"
+      ]
+    },
+    {
+      "iso": "EUR",
+      "region": "euro",
+      "name_zh": "欧元",
+      "name_en": "Euro",
+      "country": "欧元区代表锚（€20 蓝，最常被引用面额；多国通用币）",
+      "shipped_denomination": {
+        "denom": "20",
+        "denom_symbol": "€",
+        "form_factor_in_game": [
+          "coin",
+          "note"
+        ],
+        "obverse": {
+          "design_desc": "哥特式建筑'窗/门'母题；欧盟旗（12 星）；ECB 行长签名（多语言缩写）；大号面额数字；左右边缘凸起短纹（视障触觉，€20 断两次）。",
+          "main_color_hex": "#1E4FA1",
+          "motif_category": "architecture",
+          "motif_instance": "哥特式窗/拱门（虚构建筑）"
+        },
+        "reverse": {
+          "design_desc": "哥特式桥梁；欧洲地图（含海外领地）；拉丁/希腊/西里尔三字母书写币种名。",
+          "main_color_hex": "#1E4FA1",
+          "motif_category": "architecture",
+          "motif_instance": "哥特式桥（虚构建筑）"
+        },
+        "latest_series": {
+          "name": "欧罗巴系列 (Europa Series, 第二版)",
+          "year": 2015
+        },
+        "historical": [
+          {
+            "year": 2002,
+            "vs_latest_diff": "第一版同为桥/窗主题、同为蓝色，但防伪较少——无 Europa 人像水印/全息、无翠绿数字（emerald number）；欧罗巴版加入肖像窗口、翠绿数字、肖像窗。"
+          },
+          {
+            "year": 2002,
+            "vs_latest_diff": "欧元前 legacy 货币（马克/法郎/里拉等）被取代；€20 设计刻意采用虚构纪念碑（政治中立，不让任何成员国被偏爱）。"
+          }
+        ],
+        "educational_facts": {
+          "person_or_subject": "桥与窗（虚构建筑母题）",
+          "why_famous": "桥与窗为虚构建筑，选此乃政治中立；12 星象征欧洲活力与和谐。",
+          "cultural_meaning": "每面额对应一建筑时代：€5 古典/€10 罗马式/€20 哥特/€50 文艺复兴/€100 巴洛克/€200 19 世纪铁玻璃/€500 20 世纪（已停发）。",
+          "trivia": "Europa 为希腊神话腓尼基公主；欧元被 20+ 国家使用；€20 为流通最广中面额之一。"
+        }
+      },
+      "coin_form_note": "欧元区流通硬币为 1¢–2€，无 €20 硬币。游戏内 coin 令牌为抽象风格化。注：EUR 为多国通用币，路线图 v1.2 地图落地需为其选定代表锚点（如法兰克福 ECB 或欧元区几何中心）。",
+      "game_stylization_anchor": {
+        "signature_color": "#4A6E8A",
+        "motif_category": "architecture",
+        "motif_label": "几何桥梁剪影",
+        "note": "来自 src/data/currencies.ts，粉彩化石板蓝，非真实色。"
+      },
+      "references": [
+        "https://currencyguide.eu/eur-en/20eur-new-en.html",
+        "https://www.bundesbank.de/en/tasks/cash-management/euro-banknotes/main-features/main-features-845990",
+        "https://www.oenb.at/en/the-euro/cash-management/banknotes.html"
+      ]
+    },
+    {
+      "iso": "GBP",
+      "region": "euro",
+      "name_zh": "英镑",
+      "name_en": "Pound Sterling",
+      "country": "英国 (United Kingdom)",
+      "shipped_denomination": {
+        "denom": "20",
+        "denom_symbol": "£",
+        "form_factor_in_game": [
+          "coin",
+          "note"
+        ],
+        "obverse": {
+          "design_desc": "J.M.W. 透纳自画像（约 1799）；名画《被拖去解体的战舰无畏号》；名言'Light is therefore colour'；透纳遗嘱签名；大透视窗（正面蓝+金箔绘 Margate 灯塔与 Turner Contemporary，背面银箔）；小透视窗（Tintern Abbey）；窗内女王肖像；全息'Twenty'↔'Pounds'；银色王冠箔；紫色'T'箔；视障触觉三簇点。",
+          "main_color_hex": "#5C2D91",
+          "motif_category": "portrait",
+          "motif_instance": "透纳自画像（画家）"
+        },
+        "reverse": {
+          "design_desc": "整体紫色调；正面大窗箔背面为银色；紫色'T'箔片位于反面（基于 Tate Britain 楼梯造型）；主视觉仍以透纳艺术母题贯穿。",
+          "main_color_hex": "#5C2D91",
+          "motif_category": "portrait",
+          "motif_instance": "透纳艺术母题（绘画/签名/名言）"
+        },
+        "latest_series": {
+          "name": "聚合物 £20（透纳版, Bank of England Polymer Series）",
+          "year": 2020
+        },
+        "historical": [
+          {
+            "year": 2007,
+            "vs_latest_diff": "前代纸钞 £20 为经济学家亚当·斯密，防伪较低；2020 转聚合物，加入双透视窗+双色箔，防伪大幅升级。"
+          },
+          {
+            "year": 2024,
+            "vs_latest_diff": "自 2024 起透视窗内女王肖像逐步替换为查理三世肖像——同一透纳艺术不变，仅君主像更替，为近期重要视觉变化。"
+          }
+        ],
+        "educational_facts": {
+          "person_or_subject": "J.M.W. 透纳 (1775-1851)",
+          "why_famous": "'光之画家'，浪漫主义大师，15 岁即于皇家艺术学院展出；遗嘱将大量画作捐予国家（Tate Britain Turner Bequest）。",
+          "cultural_meaning": "《无畏号》致敬特拉法尔加海战 HMS Temeraire；£20 为英格兰银行流通量最大的钞（20+ 亿张）。",
+          "trivia": "聚合物钞寿命约纸钞 2.5 倍；透纳名言'Light is therefore colour'被直接印上钞面。"
+        }
+      },
+      "coin_form_note": "英国流通硬币止于 £5（纪念克朗），流通中无 £20 硬币（仅有纪念性 £20 硬币）。游戏内 coin 令牌为抽象风格化。",
+      "game_stylization_anchor": {
+        "signature_color": "#6A5B8A",
+        "motif_category": "portrait",
+        "motif_label": "人像圆章",
+        "note": "来自 src/data/currencies.ts，粉彩化柔紫，非真实色。"
+      },
+      "references": [
+        "https://www.bankofengland.co.uk/news/2019/october/the-new-20-note-unveiled",
+        "https://currencyguide.eu/gbp-en/20gbp-polymer-en.html",
+        "https://www.rnib.org.uk/about-us/media-centre/latest-media-releases/new-%C2%A320-note-strengthens-bank%E2%80%99s-commitment-making-money-accessible-people-sight-loss"
+      ]
+    },
+    {
+      "iso": "CNY",
+      "region": "asia_afr",
+      "name_zh": "人民币",
+      "name_en": "Renminbi",
+      "country": "中国 (China)",
+      "shipped_denomination": {
+        "denom": "100",
+        "denom_symbol": "¥",
+        "form_factor_in_game": [
+          "coin",
+          "note"
+        ],
+        "obverse": {
+          "design_desc": "毛泽东人像居中；'中国人民银行'；国徽；光彩光变数字'100'（垂直金、平视绿）；光变镂空开窗安全线（右侧，品红→绿，含'¥100'镂空字）；横竖双号码；盲文；雕刻凹印。",
+          "main_color_hex": "#C3272D",
+          "motif_category": "portrait",
+          "motif_instance": "毛泽东人像"
+        },
+        "reverse": {
+          "design_desc": "人民大会堂；年号'2015 年'；下方面额数字与装饰纹样。",
+          "main_color_hex": "#C3272D",
+          "motif_category": "architecture",
+          "motif_instance": "人民大会堂（建筑）"
+        },
+        "latest_series": {
+          "name": "第五套人民币 2015 版（100 元）",
+          "year": 2015
+        },
+        "historical": [
+          {
+            "year": 2005,
+            "vs_latest_diff": "同为毛泽东+人民大会堂+红色，但无光彩光变'100'、无开窗安全线、无竖号码；2015 主要升级防伪，主景与色调不变。"
+          },
+          {
+            "year": 1999,
+            "vs_latest_diff": "第五套首版 ¥100（1999-10），防伪更基础；后续被 2005、2015 迭代；'红票'身份贯穿第五套。"
+          }
+        ],
+        "educational_facts": {
+          "person_or_subject": "毛泽东",
+          "why_famous": "中华人民共和国主要缔造者；其头像自第五套（1999）起固定于 ¥100。",
+          "cultural_meaning": "¥100'红票'为最具代表性的高面额红钞；人民大会堂是全国人大会议之地。",
+          "trivia": "人民币意为'人民的货币'；2015 版采用国际前沿'光彩光变'防伪（欧元、新版美元亦用同类）。"
+        }
+      },
+      "coin_form_note": "中国流通硬币为 1 分–1 元，无 ¥100 硬币。游戏内 coin 令牌为抽象风格化。",
+      "game_stylization_anchor": {
+        "signature_color": "#C75D4F",
+        "motif_category": "portrait",
+        "motif_label": "人像圆章",
+        "note": "来自 src/data/currencies.ts，粉彩化暖绯红，非真实色。"
+      },
+      "references": [
+        "https://www.chinanews.com.cn/m/shipin/2015/11-10/news608611.shtml",
+        "https://money.people.com.cn/bank/n/2015/1112/c202331-27806088.html",
+        "https://taiwan.cri.cn/2015-8-10/5beebdc8-553a-af22-a40e-8232ca9e67b5.html"
+      ]
+    },
+    {
+      "iso": "JPY",
+      "region": "asia_afr",
+      "name_zh": "日元",
+      "name_en": "Japanese Yen",
+      "country": "日本 (Japan)",
+      "shipped_denomination": {
+        "denom": "1000",
+        "denom_symbol": "¥",
+        "form_factor_in_game": [
+          "coin",
+          "note"
+        ],
+        "obverse": {
+          "design_desc": "北里柴三郎（Kitasato Shibasaburō）肖像（F 券）；血清疗法（破伤风）开创者、鼠疫杆菌发现者。",
+          "main_color_hex": "#3E86C0",
+          "motif_category": "portrait",
+          "motif_instance": "北里柴三郎人像（F 券）"
+        },
+        "reverse": {
+          "design_desc": "葛饰北斋《富岳三十六景》之《神奈川冲浪里》（The Great Wave off Kanagawa）浮世绘名作（F 券）。",
+          "main_color_hex": "#3E86C0",
+          "motif_category": "landscape",
+          "motif_instance": "《神奈川冲浪里》浮世绘（景观）"
+        },
+        "latest_series": {
+          "name": "F 券 (Series F, 第六系列)",
+          "year": 2024
+        },
+        "historical": [
+          {
+            "year": 2004,
+            "vs_latest_diff": "E 券正面为细菌学家野口英世、反面为富士山与樱花；主色同为蓝。F 券把人物换为北里柴三郎、反面换为《神奈川冲浪里》，并首次加入英文。"
+          },
+          {
+            "year": 1984,
+            "vs_latest_diff": "D 券正面为作家夏目漱石、反面为两只丹顶鹤；不同人物/动物母题，主色仍蓝。"
+          }
+        ],
+        "educational_facts": {
+          "person_or_subject": "北里柴三郎 (1853-1931)",
+          "why_famous": "传染病学先驱，'日本细菌学之父'；确立破伤风血清疗法、发现鼠疫杆菌。",
+          "cultural_meaning": "《神奈川冲浪里》为葛饰北斋最著名浮世绘，属《富岳三十六景》；富士山为日本圣山象征。",
+          "trivia": "¥1000 为流通最广小面额蓝钞；日元 1871 年创设；F 券为第六系列且首个带英文版本。"
+        }
+      },
+      "coin_form_note": "日本流通硬币为 ¥1/¥5/¥10/¥50/¥100/¥500，无 ¥1000 硬币。游戏内 coin 令牌为抽象风格化。注：游戏母题若保留'富士+樱花'锚点可用 E 券景观母题，与最新 F 券不冲突。",
+      "game_stylization_anchor": {
+        "signature_color": "#6E97A3",
+        "motif_category": "landscape",
+        "motif_label": "富士山三角+樱花点",
+        "note": "来自 src/data/currencies.ts，粉彩化青灰，非真实色。"
+      },
+      "references": [
+        "https://www.npb.go.jp/en/products/intro/kihon.html",
+        "https://www.boj.or.jp/en/note_tfjgs/note/valid/issue.htm",
+        "https://en.wikipedia.org/wiki/1,000_yen_note"
+      ]
+    },
+    {
+      "iso": "INR",
+      "region": "asia_afr",
+      "name_zh": "印度卢比",
+      "name_en": "Indian Rupee",
+      "country": "印度 (India)",
+      "shipped_denomination": {
+        "denom": "100",
+        "denom_symbol": "₹",
+        "form_factor_in_game": [
+          "coin",
+          "note"
+        ],
+        "obverse": {
+          "design_desc": "圣雄甘地（Mahatma Gandhi）人像居中；'भारत / RESERVE BANK OF INDIA'；'GUARANTEED BY THE CENTRAL GOVERNMENT'；'I PROMISE TO PAY THE BEARER THE SUM OF ONE HUNDRED RUPEES'；阿育王柱徽；天城体'१००'；变色窗式安全线（绿→蓝）；甘地水印+电铸'100'；视障凸起印刷。",
+          "main_color_hex": "#9E7FB5",
+          "motif_category": "portrait",
+          "motif_instance": "圣雄甘地人像"
+        },
+        "reverse": {
+          "design_desc": "Rani ki Vav（巴坦阶梯井，UNESCO 世界遗产），象征印度文化遗产；另有 Swachh Bharat 标志、多语言面板。",
+          "main_color_hex": "#9E7FB5",
+          "motif_category": "architecture",
+          "motif_instance": "Rani ki Vav 阶梯井（建筑）"
+        },
+        "latest_series": {
+          "name": "甘地（新）系列 / Mahatma Gandhi (New) Series",
+          "year": 2018
+        },
+        "historical": [
+          {
+            "year": 2005,
+            "vs_latest_diff": "前代甘地系列同为甘地正面肖像，但反面采用不同印度遗产母题（各面额各异）；新系列（2018）改尺寸为 66×142mm、标准化薰衣草底色、引入 Rani ki Vav 阶梯井反面。"
+          },
+          {
+            "year": 2018,
+            "vs_latest_diff": "同系列其他面额锚点：₹10 新系列反面为科纳克太阳神庙（巧克力棕）、₹20 为象岛石窟等——'每面额一个印度遗产母题'的家族设计语言，适合作为历史演变内容扩展。"
+          }
+        ],
+        "educational_facts": {
+          "person_or_subject": "圣雄甘地 (1869-1948)",
+          "why_famous": "以非暴力不合作领导印度独立；肖像见于所有 MG 系列钞。",
+          "cultural_meaning": "Rani ki Vav 为 11 世纪阶梯井，由王后 Udayamati 为 Bhima I 王所建，以 1500+ 雕像闻名，是印度水利与雕刻艺术杰作。",
+          "trivia": "印度钞面印有 15+ 种语言；₹ 符号 2010 年才正式采用（设计者 D. Udaya Kumar）；薰衣草 ₹100 最常见。"
+        }
+      },
+      "coin_form_note": "印度流通硬币为 50 派萨–₹10（有 ₹10 硬币），无 ₹100 硬币。游戏内 coin 令牌为抽象风格化。",
+      "game_stylization_anchor": {
+        "signature_color": "#B08FB5",
+        "motif_category": "portrait",
+        "motif_label": "人像圆章",
+        "note": "来自 src/data/currencies.ts，粉彩化柔薰衣草，非真实色。"
+      },
+      "references": [
+        "https://www.rbi.org.in/scripts/FS_PressRelease.aspx?prid=44533",
+        "https://paisaboltahai.rbi.org.in/rupees-one-hundred.aspx",
+        "https://website.rbi.org.in/web/rbi/currency-management/press-releases"
+      ]
+    },
+    {
+      "iso": "ZAR",
+      "region": "asia_afr",
+      "name_zh": "南非兰特",
+      "name_en": "South African Rand",
+      "country": "南非 (South Africa)",
+      "shipped_denomination": {
+        "denom": "10",
+        "denom_symbol": "R",
+        "form_factor_in_game": [
+          "coin",
+          "note"
+        ],
+        "obverse": {
+          "design_desc": "纳尔逊·曼德拉（Nelson Mandela）肖像居中；国徽（coat of arms）；'South African Reserve Bank / Suid-Afrikaanse Reserwebank / LiBhangesilulu LeNingizimu Afrika'；11 种官方语言组合呈现。",
+          "main_color_hex": "#3E8C5A",
+          "motif_category": "portrait",
+          "motif_instance": "纳尔逊·曼德拉人像"
+        },
+        "reverse": {
+          "design_desc": "白犀牛（White Rhinoceros / Ceratotherium simum），属'五大兽'（Big Five）；2023 焕新后改为犀牛家族（母+幼）。水印曼德拉+电铸'10'。",
+          "main_color_hex": "#3E8C5A",
+          "motif_category": "animal",
+          "motif_instance": "白犀牛（Big Five）"
+        },
+        "latest_series": {
+          "name": "曼德拉系列 (Mandela Series, 2012 起；2023 动物家族焕新)",
+          "year": 2012
+        },
+        "historical": [
+          {
+            "year": 1992,
+            "vs_latest_diff": "前代四大兽/姆贝基系列（Fourth Issue）五大兽在正面（R10 正面为犀牛），票面无人物；曼德拉系列（2012）把曼德拉移到正面、五大兽移到反面——重大视觉反转。"
+          },
+          {
+            "year": 2023,
+            "vs_latest_diff": "焕新把反面动物改为'家族'并加入国旗与宪法微缩文字、更深色；2018 百年纪念 R50 反面则为罗本岛囚室。"
+          }
+        ],
+        "educational_facts": {
+          "person_or_subject": "纳尔逊·曼德拉 (1918-2013)",
+          "why_famous": "南非首位民选总统、反种族隔离领袖，尊称'Madiba'。",
+          "cultural_meaning": "五大兽（狮/豹/象/犀/水牛）为南非野性象征；兰特（rand）得名于'白水脊'（Witwatersrand）金矿区。",
+          "trivia": "南非钞是唯一印有全部 11 种官方语言的钞；白犀牛为体型最大的犀牛；跳羚为南非硬币/克鲁格金币图案，非 R10 纸币母题（旧档误写已更正）。"
+        }
+      },
+      "coin_form_note": "南非流通硬币为 1¢–R5（有 R5 硬币，无 R10 流通硬币；R10/R20/R50 仅纪念币）。游戏内 coin 令牌为抽象风格化。",
+      "game_stylization_anchor": {
+        "signature_color": "#6E9B7E",
+        "motif_category": "animal",
+        "motif_label": "极简动物剪影",
+        "note": "来自 src/data/currencies.ts，粉彩化灰绿/sage，非真实色。"
+      },
+      "references": [
+        "https://www.banknotes.com/za133.htm",
+        "https://www.jardinesgalleries.co.za/library/banknotes-mandela-2012-present",
+        "https://www.chinadaily.com.cn/world/2012-11/07/content_15886991.htm"
+      ]
+    }
+  ]
+}

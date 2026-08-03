@@ -1,0 +1,40 @@
+{
+  "appid": "wx17a65f22bf1eba4e",
+  "compileType": "game",
+  "projectname": "currency-codex",
+  "setting": {
+    "urlCheck": false,
+    "es6Button": true,
+    "postcss": false,
+    "minified": false,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    },
+    "es6": false,
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "enhance": false,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true
+  },
+  "libVersion": "latest",
+  "description": "货币图鉴·对对碰（纯 TS+Canvas2D，无 Cocos）。请将 appid 替换为你的小程序 appid 后再预览/上传。",
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "isGameTourist": false,
+  "editorSetting": {}
+}
