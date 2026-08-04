@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
 火山方舟 Seedream 生图生成器
-模型：doubao-seedream-4-5-251128（已验证可用，2026-03-28）
+模型（均已验证可用）：
+  默认  : doubao-seedream-4-5-251128
+  扩展  : doubao-seedream-5-0-pro-260628 / doubao-seedream-5-0-260128  （探测确认 2026-08-03）
 接口：POST https://ark.cn-beijing.volces.com/api/v3/images/generations
 鉴权：Bearer {ARK_API_KEY}
 支持尺寸：2k / 2048x2048 / 2560x1440 / 2048x1152 等（最低 3686400 px）
@@ -33,6 +35,23 @@ SIZE_MAP = {
 }
 
 
+# ============ 已验证可用的 Seedream 模型 id（火山方舟，探测确认于 2026-08-03）============
+# 命名规律：doubao-seedream-<主版本>-<次版本>-<日期后缀>
+#   4.5 为既有基线；5.0-pro / 5.0-lite 为本次扩展。
+# 两个 5.0 id 经「GET /api/v3/models 列表 + 各一次轻量生成探测」双重确认，
+# 非臆造 —— 火山方舟目录中 5.0 仅两个端点：
+#   doubao-seedream-5-0-pro-260628  (专业版)
+#   doubao-seedream-5-0-260128     (基础 5.0 端点，即本仓库所称「lite」)
+SEEDREAM_45 = "doubao-seedream-4-5-251128"
+SEEDREAM_50_PRO = "doubao-seedream-5-0-pro-260628"   # 5.0 专业版
+SEEDREAM_50_LITE = "doubao-seedream-5-0-260128"      # 5.0 轻量版（基础 5.0 端点）
+
+# 模型能力差异：guidance_scale 仅 4.5 支持；5.0 系列（pro/lite）会返回 HTTP 400 拒绝该参数
+GUIDANCE_SCALE_SUPPORTED = {SEEDREAM_45}
+# 批处理能力：仅 4.5 支持单次 n>1；5.0 端点对 n>1 响应极慢（易超时）且实测只回 1 张，故逐张请求
+BATCH_CAPABLE = {SEEDREAM_45}
+
+
 class VolcanoArkGenerator(ImageGeneratorBase):
     """火山方舟 Seedream 生图生成器（HTTP 直连，无需 SDK）"""
     
@@ -57,8 +76,25 @@ class VolcanoArkGenerator(ImageGeneratorBase):
         guidance_scale: Optional[float] = None,
         optimize_prompt_mode: Optional[str] = None,
         ref_image: Optional[str] = None,
+        model: Optional[str] = None,
         **kwargs
     ) -> List[ImageResult]:
+        """
+        火山方舟 Seedream 生图（支持文生图 + 图生图/参考图锁定）
+
+        Args:
+            prompt: 提示词（中英文均支持，中文效果更好）
+            negative_prompt: 负面提示词（晓波 harness 必加）
+            size: 尺寸，支持 "2k"/"16:9"/"9:16"/"1:1" 等，默认 "2k"
+            watermark: 是否加水印，默认 False
+            style_strength: 风格强度 0-10（harness: 插画 8, 人像 6, 产品 5）
+            detail_level: 细节丰富度 0-10（harness: 7-9）
+            guidance_scale: 文本权重 1-10（harness: 7-8）
+            optimize_prompt_mode: 提示词优化模式，"standard"=质量优先
+            ref_image: 参考图片路径（图生图模式）
+            model: 覆盖本次请求使用的模型 id（不传则用 self.model 默认 4.5）。
+                   出图管线（generate_world_tour.py）据此按配额/优先级逐请求切换 5.0/4.5。
+        """
         """
         火山方舟 Seedream 生图（支持文生图 + 图生图/参考图锁定）
 
@@ -76,9 +112,11 @@ class VolcanoArkGenerator(ImageGeneratorBase):
         """
         # 转换尺寸
         api_size = SIZE_MAP.get(size, "2k")
+        # 本次实际使用的模型：显式传入优先，否则回落 self.model（默认 4.5）
+        used_model = model or self.model
 
         body = {
-            "model": self.model,
+            "model": used_model,
             "prompt": prompt,
             "size": api_size,
             "response_format": "url",
@@ -119,8 +157,8 @@ class VolcanoArkGenerator(ImageGeneratorBase):
         # 细节丰富度（7-9）
         if detail_level is not None:
             body["detail_level"] = detail_level
-        # 文本权重（7-8）
-        if guidance_scale is not None:
+        # 文本权重（7-8）—— 仅 4.5 支持；5.0 模型传此参数会 HTTP 400
+        if guidance_scale is not None and used_model in GUIDANCE_SCALE_SUPPORTED:
             body["guidance_scale"] = guidance_scale
         # 提示词优化模式
         if optimize_prompt_mode is not None:
@@ -138,7 +176,7 @@ class VolcanoArkGenerator(ImageGeneratorBase):
                 },
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=60) as r:
+            with urllib.request.urlopen(req, timeout=180) as r:
                 resp = json.loads(r.read().decode("utf-8"))
             
             results = []
@@ -148,7 +186,7 @@ class VolcanoArkGenerator(ImageGeneratorBase):
                     image_url=img.get("url", ""),
                     seed=seed,
                     metadata={
-                        "model": self.model,
+                        "model": used_model,
                         "size": api_size,
                     }
                 ))

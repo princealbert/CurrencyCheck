@@ -246,9 +246,9 @@ section('B. 事件注册表自洽性');
 {
   const files = allAudioFiles();
   const stats = audioManifestStats();
-  eq('事件总数 = 25', stats.events, 25);
+  eq('事件总数 = 26', stats.events, 26);
   eq('文件总数 = SFX + BGM', stats.files, stats.sfxFiles + stats.bgmFiles);
-  eq('BGM 文件 = 3', stats.bgmFiles, 3);
+  eq('BGM 文件 = 4', stats.bgmFiles, 4);
   ok('文件清单非空', files.length > 0);
   eq('文件清单长度 = stats.files', files.length, stats.files);
 

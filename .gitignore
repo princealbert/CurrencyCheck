@@ -14,9 +14,25 @@ minigame/wx-dist/
 minigame/node_modules/
 minigame/.tmp-itest/
 
-# ===== CDN remote assets (generated, served from CDN, not in repo) =====
+# ===== CDN remote assets (wx production serves world-tour frames from CDN;
+#   for the web/EdgeOne demo we DO bundle them, so the minigame path is
+#   intentionally NOT ignored — only keep the (non-existent) repo-root path
+#   as a future safeguard) =====
 assets/remote/
-minigame/assets/remote/
+
+# ===== world-tour raw BGM take candidates (~35MB generated, not shipped) =====
+minigame/assets/audio/bgm/bgm_tour_take*.mp3
+
+# ===== EdgeOne MCP local deploy mirror (build cache, not source) =====
+minigame/.edgeone/
+
+# ===== Python runtime artifacts =====
+__pycache__/
+*.py[cod]
+
+# ===== generator runtime state / intermediates =====
+tools/image_generator/.quota_state.json
+tools/image_generator/output/
 
 # ===== OS / editor cruft =====
 .DS_Store

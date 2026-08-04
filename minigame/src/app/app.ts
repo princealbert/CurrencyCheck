@@ -51,6 +51,7 @@ import {
   tourFrameSrc,
   tourPhaseAt,
 } from '../data/worldTour';
+import { IMAGES_BASE, SCENES_BASE } from '../config/cdn';
 import { drawApp } from '../render/renderer';
 import { boardLayout } from '../render/layout';
 import {
@@ -169,6 +170,8 @@ export class App {
   private tourPausedAt = 0;
   /** 历史暂停累计毫秒 —— 从 elapsed 里扣掉，保证暂停期间时间轴真的停住 */
   private tourPauseAccum = 0;
+  /** 世界-tour 尾部已触发 1.5s 淡出（outro 阶段只触发一次） */
+  private tourFadeStarted = false;
 
   /** 游戏时钟（§5.2）：所有动画/延时的唯一时间基准 */
   gameTimeMs = 0;
@@ -421,6 +424,11 @@ export class App {
     //     做法与下方 won 星序保活窗口同构，只是这里没有"窗口"，是整段常开）。
     if (this.view === 'world_tour') {
       const phase = tourPhaseAt(this.tourElapsedMs(), this.tourReplay);
+      // 进入 outro 阶段时一次性触发 1.5s 音乐淡出（影片尾，收在终止式上）
+      if (phase.kind === 'outro' && !this.tourFadeStarted) {
+        this.tourFadeStarted = true;
+        this.audio.fadeMusicOut();
+      }
       if (phase.kind === 'done') {
         // 播完 → 与「跳过」走同一出口（标记已看 + 清旗标 + 回 Hub）
         this.closeWorldTour();
@@ -636,10 +644,7 @@ export class App {
    * **不等待任何一张图** —— 未就绪的帧走区域签名色兜底渐变，字幕照常，时间轴不停。
    */
   openWorldTour(replay = false): void {
-    // A5 视图切换音复用：这是"进入一层新界面"，与 §5 建议的「低音量柔和起手音」是同一插桩点。
-    // TODO(音频待办 · 阮和鸣)：若新增专属进入音（需与 sfx_win_session 明确区分音色，
-    //   两者会前后脚出现），改这一行即可。
-    this.audio.play('sfx_view_codex_open');
+    // 电影化结算刻意不播进入音（避免像翻开图鉴）；独立进入音待 audioEvents TODO 接入。
     this.claimTapSfx();
 
     this.view = 'world_tour';
@@ -649,6 +654,7 @@ export class App {
     this.tourPaused = false;
     this.tourPausedAt = 0;
     this.tourPauseAccum = 0;
+    this.tourFadeStarted = false;
     this.preloadTourFrames(TOUR_FRAME_COUNT);
     this.dirty = true;
   }
@@ -673,9 +679,11 @@ export class App {
     if (this.tourPaused) {
       this.tourPauseAccum += this.gameTimeMs - this.tourPausedAt;
       this.tourPaused = false;
+      this.audio.setBgmPaused(false);
     } else {
       this.tourPausedAt = this.gameTimeMs;
       this.tourPaused = true;
+      this.audio.setBgmPaused(true);
     }
     // 暂停/继续是"控制"不是"确认"，走通用点按音即可 —— 这里不认领，让 handleTap 补 A1。
     this.dirty = true;
@@ -688,8 +696,8 @@ export class App {
   }
 
   openCodex(): void {
-    this.audio.play('sfx_view_codex_open'); // A5
-    this.claimTapSfx();
+    // §音频收尾：删除进入图鉴的翻页提示音（A5）。通用点按音由 handleTap 兜底补播，
+    // 故同时取消 claimTapSfx，避免静音 —— 保留「其他必要 SFX」（点按 A1）。
     this.view = 'codex';
     this.codexScroll = 0;
     this.dirty = true;
@@ -1115,7 +1123,7 @@ export class App {
       for (const f of FORM_FACTORS) {
         const key = c.iso + '_' + f;
         if (this.images.has(key)) continue;
-        const src = `assets/cur_${c.iso}_${c.denom}_${c.region}_${f}.png`;
+        const src = IMAGES_BASE + `cur_${c.iso}_${c.denom}_${c.region}_${f}.png`;
         this.platform
           .loadImage(src)
           .then((img) => {
@@ -1133,11 +1141,11 @@ export class App {
   private preloadScenes(): void {
     const keys = ['scene_hub', 'scene_board', 'scene_codex', 'scene_detail', 'deco_globe'];
     const files: Record<string, string> = {
-      scene_hub: 'assets/bg_hub.png',
-      scene_board: 'assets/bg_board.png',
-      scene_codex: 'assets/bg_codex.png',
-      scene_detail: 'assets/bg_detail.png',
-      deco_globe: 'assets/deco_globe.png',
+      scene_hub: SCENES_BASE + 'bg_hub.png',
+      scene_board: SCENES_BASE + 'bg_board.png',
+      scene_codex: SCENES_BASE + 'bg_codex.png',
+      scene_detail: SCENES_BASE + 'bg_detail.png',
+      deco_globe: SCENES_BASE + 'deco_globe.png',
     };
     for (const key of keys) {
       if (this.images.has(key)) continue;

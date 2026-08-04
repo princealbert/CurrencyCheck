@@ -68,8 +68,12 @@ export interface AudioEventDef {
 
 /* ================= 常量 ================= */
 
-/** 资源根目录。BGM 走 CDN 是后续 E 阶段的事，骨架阶段两者都声明在本地路径下 */
-export const AUDIO_ROOT = 'assets/audio/';
+/**
+ * 音频根目录（路线 A：资产全 CDN，Phase 7 B1 修复）。
+ * 真源在 src/config/cdn.ts：CDN 激活时 = <CDN_BASE>/assets/audio/，否则本地 assets/audio/。
+ * 此处仅 re-export，避免硬编码域名（构建期经 esbuild define 注入 CDN base）。
+ */
+export { AUDIO_ROOT } from '../config/cdn';
 
 /** 单一格式：mp3（微信 + 浏览器双端通吃；不用 ogg —— iOS 支持不可靠且双份体积） */
 export const AUDIO_EXT = '.mp3';
@@ -102,8 +106,15 @@ export const DUCK_RELEASE_MS = 400;
 export const MAX_CONCURRENT_VOICES = 6;
 export const MAX_AUDIO_INSTANCES = 12;
 
-/** BGM 交叉淡变时长（§7 F 组） */
+/** BGM 交叉淡变时长（§7 F 组，场景切换用） */
 export const BGM_FADE_MS = 400;
+
+/**
+ * 世界-tour 结尾「收住」淡出时长（任务 2/3：一次性 BGM 在落款段淡出到 0）。
+ * ⚠ 任务书口头记为「BGM_FADE_MS = 1.5s」，但 BGM_FADE_MS 是 §7 场景交叉淡变（400ms），
+ *   二者语义不同；此处单列 1.5s 专供 fadeMusicOut，不改交叉淡变口径。
+ */
+export const BGM_FADE_OUT_MS = 1500;
 
 /**
  * 连续登录里程碑门槛（D3）。
@@ -142,7 +153,7 @@ export type SfxEventId =
   | 'sfx_dialogue_pop'
   | 'sfx_hub_first_open';
 
-export type MusicTrackId = 'bgm_hub' | 'bgm_match' | 'bgm_codex';
+export type MusicTrackId = 'bgm_hub' | 'bgm_match' | 'bgm_codex' | 'bgm_tour';
 
 export type AudioEventId = SfxEventId | MusicTrackId;
 
@@ -332,6 +343,18 @@ export const AUDIO_EVENTS: Record<AudioEventId, AudioEventDef> = {
     reducedFxSilent: false,
     poolSize: 1,
   },
+  bgm_tour: {
+    eventId: 'bgm_tour',
+    file: 'bgm/bgm_tour',
+    suffixes: [''],
+    loop: false,
+    volumeMul: 1.0,
+    priority: 2,
+    bus: 'MUSIC',
+    throttleMs: 0,
+    reducedFxSilent: false,
+    poolSize: 1,
+  },
 };
 
 /* ================= BGM 场景映射（audio-events.md §7） ================= */
@@ -355,13 +378,10 @@ export const MUSIC_SCENES: Record<MusicScene, { track: MusicTrackId; gain: numbe
   pair: { track: 'bgm_match', gain: 0.3 },
   codex: { track: 'bgm_codex', gain: 0.4 },
   detail: { track: 'bgm_codex', gain: 0.35 },
-  // 「环游世界」全收集结算（world-tour-reward §5）：复用 bgm_codex，gain 0.42 —— 比 codex
-  // 的 0.40 高一档，作为「这是特别时刻」的**微弱**信号（不是变响，是不一样）。
-  // TODO(音频待办 · 阮和鸣 / B-5)：若新编 bgm_tour.mp3（约 35s，收在完整终止式上）落地，
-  //   本行改为 { track: 'bgm_tour', gain: 0.42 }，并在 MusicTrackId 加 'bgm_tour'、
-  //   AUDIO_EVENTS 补一条 MUSIC 定义。复用 bgm_codex 需循环，循环点可能落在字幕中段，
-  //   情绪会断 —— 这是本项已知的体验折损，非实现缺陷。
-  world_tour: { track: 'bgm_codex', gain: 0.42 },
+  // 「环游世界」全收集结算（world-tour-reward §5）：专用 BGM = bgm_tour，非循环一次性播放
+  // （loop:false，约 32.7s，收在完整终止式上），gain 0.44（阮和鸣 spec）。影片尾部由
+  // app.tick 在转入 outro 阶段时触发 1.5s fade-out，结束在终止式上 —— 不循环、不重起播。
+  world_tour: { track: 'bgm_tour', gain: 0.44 },
 };
 
 /* ================= 查询辅助 ================= */

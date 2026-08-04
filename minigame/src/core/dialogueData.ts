@@ -330,7 +330,7 @@ export const DIALOGUE_NODES: Record<DialogueNodeId, DialogueNodeDef> = {
     holdMode: 'standard',
     defaultRegion: 'amer',
     resolveLines: () => [
-      { text: '顶上那行是今天的汇率快照——记得，这只是参考，不是建议。咱们是看故事，不是看盘。', line1: TITLE_CECE, region: 'amer' },
+      { text: '今天的汇率快照，只是随手记的小知识——记得，仅供参考，不是建议。咱们是看故事，不是看盘。', line1: TITLE_CECE, region: 'amer' },
     ],
   },
 };

@@ -270,10 +270,18 @@ def main():
                     help="强制纯文生图（即使有参考图也不传 ref_image），用于对照/回退")
     ap.add_argument("--selfcheck", action="store_true",
                     help="仅做参考图解析/分支自检，不消耗 key，也不检查 ARK_API_KEY")
+    ap.add_argument("--force", action="store_true",
+                    help="确认重新出图（调用付费图像 API）；默认不生成，避免误触重出")
     args = ap.parse_args()
 
     if args.selfcheck:
         selfcheck()
+        return 0
+
+    if not args.force:
+        print("⚠ 该脚本会调用付费图像 API 重新出图。默认不生成；如确要重出请加 --force。"
+              "（仅做本地自检用 --selfcheck，不消耗 key。）")
+        sys.exit(2)
 
     # 参考图目录：绝对路径直接用；相对路径相对脚本目录解析（与默认 reference_subjects 一致）
     ref_dir = Path(args.ref_dir)

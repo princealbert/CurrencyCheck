@@ -345,22 +345,24 @@ export function drawWorldTour(
   });
 
   if (phase.kind === 'intro') {
-    /* —— 开场（2.0s）：黑场渐亮 + 主文案居中淡入淡出，此段无名胜图 —— */
-    // 0–35% 淡入、35–70% 保持、70–100% 淡出
-    const p = phase.p;
-    const a = p < 0.35 ? p / 0.35 : p > 0.7 ? clamp01((1 - p) / 0.3) : 1;
-    ctx.globalAlpha = a;
-    const lineH = 30;
-    const y0 = vp.h * 0.46 - ((TOUR_OPENING_LINES.length - 1) * lineH) / 2;
-    TOUR_OPENING_LINES.forEach((ln, i) => {
-      text(ctx, ln, vp.w / 2, y0 + i * lineH, {
-        align: 'center',
-        baseline: 'middle',
-        size: 19,
-        color: SUB_COLOR,
+    /* —— 开场（2.0s）：黑场渐亮；首看显示主文案，replay 重看隐藏（§3.4 方案 A）—— */
+    if (!app.tourReplay) {
+      // 0–35% 淡入、35–70% 保持、70–100% 淡出
+      const p = phase.p;
+      const a = p < 0.35 ? p / 0.35 : p > 0.7 ? clamp01((1 - p) / 0.3) : 1;
+      ctx.globalAlpha = a;
+      const lineH = 30;
+      const y0 = vp.h * 0.46 - ((TOUR_OPENING_LINES.length - 1) * lineH) / 2;
+      TOUR_OPENING_LINES.forEach((ln, i) => {
+        text(ctx, ln, vp.w / 2, y0 + i * lineH, {
+          align: 'center',
+          baseline: 'middle',
+          size: 19,
+          color: SUB_COLOR,
+        });
       });
-    });
-    ctx.globalAlpha = 1;
+      ctx.globalAlpha = 1;
+    }
   } else if (phase.kind === 'frames') {
     const { index, fp, nextAlpha } = phase;
 

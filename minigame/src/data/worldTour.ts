@@ -17,6 +17,7 @@
  */
 
 import { Region } from '../core/types';
+import { WORLDTOUR_BASE } from '../config/cdn';
 
 /* ================= 帧表（8 帧，序号即播放顺序） ================= */
 
@@ -74,11 +75,11 @@ export const TOUR_FRAMES: readonly TourFrame[] = [
   },
   {
     no: 5,
-    slug: 'jungfrau',
+    slug: 'landwasser',
     region: 'euro',
     tint: '#47738F',
     tintAlpha: 0.12,
-    caption: '「山从不说话，云替它说了一整个下午。」',
+    caption: '「桥把云切成两半，火车从中间穿了过去。」',
   },
   {
     no: 6,
@@ -111,12 +112,13 @@ export const TOUR_FRAME_COUNT = TOUR_FRAMES.length;
 /* ================= 资源路径（§C.3 / §C.4） ================= */
 
 /**
- * 帧图前缀。**本地预览走 assets/remote/**（build.mjs 已把该目录从 wx 主包排除），
- * 上线换成 CDN 前缀即可 —— 尾段（文件名）本地与线上完全一致。
- * TODO(上线前)：改为 `<CDN_BASE>/worldtour/`，并确认该域名已进小程序后台
- *               **downloadFile 合法域名**白名单（§C.4.1 陷阱 2，开发者工具不校验）。
+ * 帧图前缀（路线 A：资产全 CDN，Phase 7 B1 修复）。
+ * 真源在 src/config/cdn.ts：CDN 激活时 = <CDN_BASE>/assets/remote/worldtour/，否则本地
+ * assets/remote/worldtour/（web 预览）。尾段（文件名）本地与线上完全一致，CDN 上只需把
+ * `assets/` 整目录原样上传到 CDN root（见 CDN_SETUP.md）。
+ * ⚠ 该域名须进小程序后台 **downloadFile 合法域名**白名单（§C.4.1 陷阱 2，开发者工具不校验）。
  */
-export const WORLDTOUR_BASE = 'assets/remote/worldtour/';
+// WORLDTOUR_BASE 已自 '../config/cdn' 导入，不再本地声明（避免硬编码域名）。
 
 /** images Map 的 key（与 preloadScenes 的 'scene_*' 同族命名，避免与母题 PNG key 撞车） */
 export function tourFrameKey(i: number): string {
@@ -171,9 +173,9 @@ export const TOUR_KEN_SCALE = 1.06;
 /** 8 帧段总长 */
 export const TOUR_FRAMES_MS = TOUR_FRAME_MS * TOUR_FRAME_COUNT;
 
-/** 全片总长；replay=true 时跳过开场 2s（§3.4） */
+/** 全片总长；replay 也走满开场 2s（§3.4 方案 A：保留开场黑场，仅隐藏主文案） */
 export function tourTotalMs(replay: boolean): number {
-  return (replay ? 0 : TOUR_INTRO_MS) + TOUR_FRAMES_MS + TOUR_OUTRO_MS;
+  return TOUR_INTRO_MS + TOUR_FRAMES_MS + TOUR_OUTRO_MS;
 }
 
 /* ================= 时间轴求值（纯函数，零副作用，可单测） =================
@@ -201,7 +203,8 @@ export function clamp01(v: number): number {
  * @param replay 重看：跳过开场 2s 主文案（§3.4），其余不变
  */
 export function tourPhaseAt(e: number, replay: boolean): TourPhase {
-  const intro = replay ? 0 : TOUR_INTRO_MS;
+  // 开场恒为 2s（replay 也走满）；replay 的主文案由渲染层按 !tourReplay 隐藏（§3.4 方案 A）
+  const intro = TOUR_INTRO_MS;
   if (e < intro) return { kind: 'intro', p: clamp01(e / TOUR_INTRO_MS) };
 
   const fe = e - intro;

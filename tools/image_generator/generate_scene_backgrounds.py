@@ -169,7 +169,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--candidates", type=int, default=1, help="每图候选数（建议 4，自动取第 1 张）")
     ap.add_argument("--only", default=None, help="只出指定 key，如 --only bg_hub")
+    ap.add_argument("--force", action="store_true",
+                    help="确认重新出图（调用付费图像 API）；默认不生成，避免误触重出")
     args = ap.parse_args()
+
+    if not args.force:
+        print("⚠ 该脚本会调用付费图像 API 重新出图。默认不生成；如确要重出请加 --force。")
+        sys.exit(2)
 
     api_key = os.getenv("ARK_API_KEY", "")
     if not api_key:

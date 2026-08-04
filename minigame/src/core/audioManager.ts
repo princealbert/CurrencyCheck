@@ -27,6 +27,7 @@ import {
   AudioEventDef,
   AudioEventId,
   BGM_FADE_MS,
+  BGM_FADE_OUT_MS,
   BUS_GAIN,
   DIALOGUE_DUCK_FACTOR,
   DUCK_ATTACK_MS,
@@ -226,6 +227,10 @@ export class AudioManager {
   private bgmSlot: PoolSlot | null = null;
   private bgmTrack: MusicTrackId | null = null;
   private bgmScene: MusicScene | null = null;
+  /** 世界-tour 尾部淡出进行中标记；淡出完成后停句柄但保留 bgmSlot 非空，避免 playBgm 重启 */
+  private bgmFadingOut = false;
+  /** 世界-tour 暂停：与可见性 / 静音共同门控 BGM 是否应播放 */
+  private bgmPaused = false;
 
   /* --- ducking（引用计数） --- */
   private duckDepth = 0;
@@ -293,14 +298,36 @@ export class AudioManager {
     if (this.visible === visible) return;
     this.visible = visible;
     if (!this.enabled || !this.bgmSlot) return;
-    try {
-      if (visible) {
-        if (!this.isMutedEffective()) this.bgmSlot.handle.play();
-      } else {
-        this.bgmSlot.handle.pause();
-      }
-    } catch {
-      /* 忽略 */
+    if (visible) this.resumeBgmIfShould();
+    else this.pauseBgmIfHidden();
+  }
+
+  /**
+   * 世界-tour 暂停 / 继续时的 BGM 门控：暂停影片不撕毁 BGM 句柄，只暂停 / 续播。
+   * 与 setAppVisible 共用 bgmShouldPlay() 单一判据，避免多处门控逻辑漂移。
+   */
+  setBgmPaused(paused: boolean): void {
+    if (this.bgmPaused === paused) return;
+    this.bgmPaused = paused;
+    if (!this.enabled || !this.bgmSlot) return;
+    if (paused) this.pauseBgmIfHidden();
+    else this.resumeBgmIfShould();
+  }
+
+  /** BGM 是否应处于播放态：可见 + 未暂停 + 未静音，三者同时成立 */
+  private bgmShouldPlay(): boolean {
+    return this.visible && !this.bgmPaused && !this.isMutedEffective();
+  }
+
+  private resumeBgmIfShould(): void {
+    if (this.enabled && this.bgmSlot && this.bgmShouldPlay()) {
+      safeCall(() => this.bgmSlot!.handle.play());
+    }
+  }
+
+  private pauseBgmIfHidden(): void {
+    if (this.enabled && this.bgmSlot && !this.bgmShouldPlay()) {
+      safeCall(() => this.bgmSlot!.handle.pause());
     }
   }
 
@@ -649,6 +676,7 @@ export class AudioManager {
     }
 
     if (this.bgmSlot) {
+      this.resetMusicFade();
       safeCall(() => this.bgmSlot!.handle.stop());
       safeDestroy(this.bgmSlot.handle);
       this.instanceCount--;
@@ -668,7 +696,7 @@ export class AudioManager {
 
     const target = this.targetMusicGain();
     return safeCall(() => {
-      slot.handle.setLoop(true);
+      slot.handle.setLoop(getAudioEvent(cfg.track)?.loop ?? true);
       slot.handle.setVolume(this.isMutedEffective() ? 0 : target);
       if (!this.isMutedEffective() && this.visible) slot.handle.play();
     });
@@ -688,6 +716,23 @@ export class AudioManager {
     this.bgmTrack = null;
     this.bgmScene = null;
     this.pendingScene = null;
+  }
+
+  /**
+   * 世界-tour 尾部「收住」：在 ms 内把当前 BGM 增益降到 0（默认 BGM_FADE_OUT_MS = 1.5s）。
+   * 淡出完成后在 applyMusicGain 斜坡结束处停句柄、但保留 bgmSlot 非空，使下一帧
+   * playBgm('world_tour') 命中同场景早退，不会重起播一次性音轨。
+   */
+  fadeMusicOut(ms: number = BGM_FADE_OUT_MS): void {
+    if (!this.enabled || !this.bgmSlot) return;
+    this.bgmFadingOut = true;
+    const now = this.clock();
+    this.rampMusicTo(0, ms, now);
+  }
+
+  /** 清除淡出标记（切轨时调用，避免残留 stale 标记导致新轨被误停） */
+  private resetMusicFade(): void {
+    this.bgmFadingOut = false;
   }
 
   /** 当前 BGM 场景（供 app 判断是否需要切换，避免重复调用） */
@@ -728,6 +773,11 @@ export class AudioManager {
     const g = this.rampMs > 0 ? this.currentMusicGain(now) : this.targetMusicGain();
     if (this.rampMs > 0 && now - this.rampStart >= this.rampMs) this.rampMs = 0;
     safeCall(() => this.bgmSlot!.handle.setVolume(this.isMutedEffective() ? 0 : clamp01(g)));
+    // 淡出完成：停一次性音轨的句柄，但**保留 bgmSlot 非空**，避免 playBgm 重启
+    if (this.bgmFadingOut && this.rampMs === 0) {
+      this.bgmFadingOut = false;
+      safeCall(() => this.bgmSlot?.handle.stop());
+    }
   }
 
   /* ---------------- Ducking ---------------- */

@@ -15,7 +15,7 @@
  */
 
 import { build } from 'esbuild';
-import { copyFileSync, mkdirSync, existsSync, cpSync } from 'node:fs';
+import { copyFileSync, mkdirSync, existsSync, cpSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
 
 const root = process.cwd();
@@ -54,16 +54,37 @@ function copyAssets(destRel, withRemote) {
     console.warn('[build] 无 assets/ 目录，跳过资产复制');
     return;
   }
+  // 清空目标 assets，避免旧构建残留（被排除资产 / 已删源文件）残留在包里顶穿体积上限
+  rmSync(dest, { recursive: true, force: true });
   const remoteDir = resolve(src, 'remote');
+  // 发布包资产排除规则（体积治理，微信总包硬上限 30MB，本地预览正常、上传才炸）：
+  //  1) assets/remote/             → 走 CDN（环游世界 8 帧名胜图，见 world-tour-assets §C.4.1）
+  //  2) 命名含 backup（不区分大小写）→ 回滚保留的旧音效（_backup_wooden / sfx_backup_prelevel）
+  //  3) bgm 目录下含 'take' 的文件  → 出曲候选中间产物（bgm_tour_take1..5 / take4_keep），非发布资产
+  const seg = (s) => s.split(sep).pop() || '';
+  const isExcluded = (s) => /backup/i.test(seg(s)) || /bgm_tour_take/i.test(seg(s));
   cpSync(src, dest, {
     recursive: true,
-    filter: (s) => withRemote || (s !== remoteDir && !s.startsWith(remoteDir + sep)),
+    filter: (s) =>
+      (!withRemote && (s === remoteDir || s.startsWith(remoteDir + sep))) || isExcluded(s)
+        ? false
+        : true,
   });
   console.log(
     '[build] assets →',
     destRel + '/assets',
     withRemote ? '' : '（已排除 assets/remote/，该批走 CDN）'
   );
+}
+
+/**
+ * 清空产物里的 assets/ 目录（防止旧构建残留资产把发布包顶穿体积上限）。
+ * 路线 A 下 wx 发布包不含任何资产（图像/音频全走 CDN），故 wx target 调本函数而非 copyAssets。
+ */
+function purgeAssets(destRel) {
+  const dest = resolve(root, destRel, 'assets');
+  rmSync(dest, { recursive: true, force: true });
+  console.log('[build] 已清空', destRel + '/assets（wx 资产走 CDN，不进发布包）');
 }
 
 async function buildWeb() {
@@ -77,14 +98,32 @@ async function buildWeb() {
     target: ['es2018'],
     sourcemap: true,
     logLevel: 'info',
+    // 本地预览：CDN base 为空 → 运行时走本地 assets/（localhost:8080 正常）
+    define: { __CDN_BASE__: '""' },
   });
   copyIf('index.html', 'dist/index.html');
+  // 部署修正：dist/ 会被当作静态站点根入口托管，脚本路径须相对 dist/ 自身（否则解析成 dist/dist/game.js → 404）
+  const distHtml = resolve(root, 'dist/index.html');
+  if (existsSync(distHtml)) {
+    const html = readFileSync(distHtml, 'utf8').replace('src="dist/game.js"', 'src="game.js"');
+    writeFileSync(distHtml, html);
+  }
   copyAssets('dist', true);
   console.log('[build] web → dist/game.js (iife)');
 }
 
 async function buildWx() {
   mkdirSync(resolve(root, 'wx-dist'), { recursive: true });
+  // 路线 A：资产全 CDN。wx 发布包只留 game.js + 配置，图像/音频运行时从 CDN 拉。
+  // CDN base 由构建期环境变量 CDN_BASE_URL 注入（不硬编码域名）。
+  // 缺省空串 → 仅用于体积验证；真机发布务必带 CDN_BASE_URL，否则运行时资产不在包内会静默降级。
+  const cdnBase = process.env.CDN_BASE_URL || '';
+  if (!cdnBase) {
+    console.warn(
+      '[build] ⚠ 未设置 CDN_BASE_URL：wx 包将不含任何资产，仅可用于体积验证。' +
+        '真机发布请带 CDN_BASE_URL=https://your-cdn.example.com 重新构建。'
+    );
+  }
   await build({
     entryPoints: [resolve(root, 'src/wx-entry.ts')],
     bundle: true,
@@ -93,11 +132,13 @@ async function buildWx() {
     platform: 'browser',
     target: ['es2018'],
     logLevel: 'info',
+    define: { __CDN_BASE__: JSON.stringify(cdnBase) },
   });
   copyIf('game.json', 'wx-dist/game.json');
   copyIf('project.config.json', 'wx-dist/project.config.json');
-  copyAssets('wx-dist', false);
-  console.log('[build] wx → wx-dist/game.js (cjs)');
+  // B1 修复：wx 主包不再打包任何资产（图像/音频全走 CDN），仅清掉旧资产残留防顶穿体积。
+  purgeAssets('wx-dist');
+  console.log('[build] wx → wx-dist/game.js (cjs) · 资产走 CDN（包内不含 assets/）');
 }
 
 (async () => {

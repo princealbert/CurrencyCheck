@@ -7,11 +7,19 @@
 
 用法：
     export ARK_API_KEY="ark-xxxx"
-    python3 generate_world_tour.py --dry-run        # 不调 API，只打印 8 帧 prompt/参数/落盘名（自检用）
-    python3 generate_world_tour.py                  # 出全部 8 帧，逐帧候选数按 §B.9
+    python3 generate_world_tour.py --dry-run        # 不调 API，只打印 8 帧 prompt/参数/落盘名 + 模型选择 + 配额 + 水印参数
+    python3 generate_world_tour.py                  # 出全部 8 帧，逐帧候选数按 §B.9；按配额/优先级选 5.0 模型
     python3 generate_world_tour.py --only moai      # 只出第 7 帧（也接受 07 / worldtour_07_moai）
     python3 generate_world_tour.py --only moai --candidates 8 --seed 12345
     python3 generate_world_tour.py --install        # 出完后复制到 minigame/assets/remote/worldtour/
+    python3 generate_world_tour.py --clean-existing # 对已落盘 worldtour/*.png 重做去水印（零 API 成本）
+
+模型与配额（2026-08-03 起）：
+   4.5 当日免费已用满（落盘 8 帧），不再使用；扩展 5.0 两模型，优先级 5.0-pro → 5.0-lite → 4.5。
+   每个模型每天 20 张免费额度，持久化到 .quota_state.json（原子落盘）；
+   每次请求前选优先级最高且能放下本次 num_images 张的模型，请求成功 used += num_images（按「图」计，非按请求）；
+   全部放不下则报错退出，绝不裸调付费额度。
+   Seedream 出图右下角「AI生成」平台水印：出图管线与 --clean-existing 均按方案 A 柔边填充去除（先去水印再 pngquant）。
 
 规格来源：design/art/world-tour-assets.md
     §B   逐帧中文 prompt + 禁止项（本文件内的字符串**由脚本从该文档逐字提取生成**，勿手改）
@@ -32,13 +40,30 @@
 """
 import os
 import sys
+import json
 import shutil
 import argparse
 import subprocess
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from volcano_ark import VolcanoArkGenerator  # noqa: E402
+from volcano_ark import (  # noqa: E402
+    VolcanoArkGenerator,
+    SEEDREAM_45,
+    SEEDREAM_50_PRO,
+    SEEDREAM_50_LITE,
+    BATCH_CAPABLE,
+)
+
+# ============ Pillow（后处理 / 去水印必需）============
+# 缺失时给出清晰安装指引，而不是让整个脚本在 import 阶段崩溃。
+try:
+    from PIL import Image, ImageFilter, ImageDraw
+    HAVE_PIL = True
+except ImportError:
+    HAVE_PIL = False
+    Image = ImageFilter = ImageDraw = None
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent.parent
@@ -52,6 +77,32 @@ FLATTEN_BG = (0x1A, 0x16, 0x14)  # §A.2 暖黑底
 PNGQUANT_QUALITY = "70-90"       # §C.2
 SIZE_BUDGET_KB = 450             # §C.2 单帧体积门槛
 TOTAL_BUDGET_KB = 3277           # §C.2 8 帧合计 ≤ 3.2 MB
+
+# ============ 模型优先级（先进优先）============
+# 5.0-pro → 5.0-lite → 4.5。4.5 当日免费已用满（落盘 8 帧），自动跳过。
+MODEL_PRIORITY = [SEEDREAM_50_PRO, SEEDREAM_50_LITE, SEEDREAM_45]
+
+# ============ 每日配额（核心）============
+# 每个模型每天 20 张免费额度；状态持久化到 .quota_state.json。
+# 结构: { "YYYY-MM-DD": { "<model_id>": <used_int> } }（系统日期取本地时区）
+QUOTA_STATE_PATH = SCRIPT_DIR / ".quota_state.json"
+DAILY_LIMIT = 20
+# 初始化「今日」计数时对各模型的播种值：
+#   4.5 已用满 → 置 20（需求硬性要求，使其自动落到 5.0，绝不裸调 4.5 付费额度）；
+#   5.0-pro / 5.0-lite 置 1 → 保守反映本次「轻量探测」各消耗 1 单位免费额度，
+#   使管理器不误判剩余额度而越界触发付费（核心原则：绝不裸调付费额度）。
+#   若今日某模型已存在记录（非首次运行），则保留其实测值，不覆盖。
+QUOTA_SEED = {SEEDREAM_45: 20, SEEDREAM_50_PRO: 1, SEEDREAM_50_LITE: 1}
+
+# ============ 水印去除（方案 A：柔边填充覆盖）============
+# Seedream 出图右下角带「AI生成」平台水印，游戏产物不能留。
+# 固定比例定位右下角包围盒（基准 1080×1920 → 约 160×70），外扩余量确保完整包住；
+# 用 L0 暖黑 #1A1614 + 底部采样均值做填充，高斯模糊 feather 柔边，避免硬矩形穿帮。
+# 去水印在 pngquant 压缩之前执行（先去水印再压缩，避免压缩放大水印边缘）。
+WM_RATIO_W = 160 / 1080.0     # 水印宽 / 图宽
+WM_RATIO_H = 70 / 1920.0      # 水印高 / 图高
+WM_MARGIN = 16 / 1080.0       # 额外外扩（图宽比例），避免漏包
+WM_FEATHER_RATIO = 0.12       # feather 半径占水印宽比例
 
 # ============ §B.0.2 负向基线（8 帧逐字复用）============
 NEG_BASE_WT = (
@@ -160,27 +211,26 @@ FRAMES = [
         note="纯白墙体，注意亮度门",
     ),
     dict(
-        no=5, slug="jungfrau", region="euro", title="瑞士·少女峰",
+        no=5, slug="landwasser", region="euro", title="瑞士·Landwasser 高架桥",
         # §B.5 中文主 prompt（自 design/art/world-tour-assets.md 逐字提取，勿手改）
         prompt=(
-            "冷调几何构成的风格化平涂插画。三到四座三角形山峰前后叠错排布，每座山峰为单色平涂，"
-            "越远的越浅，山脊线干净利落，峰与峰之间有明确的前后遮挡关系；"
-            "数块不规则的白色云团色块从画面中部水平横切过山体，把山体切断成上下两截，"
-            "云块边缘柔和但内部为纯色平涂；山腰处有一条极细的水平线，暗示山间铁道，"
-            "不画列车、不画车厢、不画桥墩、不画轨枕；天空为一整块冷调浅色平涂。"
-            "整幅只用三个主色加一个点缀色：雾蓝灰（近山）、冷白（雪与云）、淡青（远山），"
-            "点缀色为暖米（天际线一线天光）。构图重心落在画面中上部的峰群与云带，"
-            "画面下方五分之二为近景山体的低对比度暗色延展区，安静、无高频细节、无岩石纹理。"
+            "冷调几何构成的风格化平涂插画。画面主体是瑞士 Landwasser 高架桥：一座由多个等距石拱组成的浅灰青色铁路高架桥，"
+            "从画面左侧山崖水平延伸至右侧，桥墩垂直落入深谷；一列极简的红色冰川列车正行驶在桥上，只取车厢轮廓，不画车窗细节。"
+            "桥的后方与下方弥漫着冷调云雾，远处露出两到三座覆雪山峰的钝角剪影，山形浑圆、有积雪覆盖，不呈尖锐三角。"
+            "天空为一整块冷调浅色平涂。"
+            "整幅只用三个主色加一个点缀色：雾蓝灰（桥体与远山）、冷白（云雾与雪）、淡青（天空与深谷），"
+            "点缀色为暖红（列车）。构图重心落在画面中部的桥与列车，画面下方五分之二为云雾与深谷的低对比度暗色延展区，"
+            "安静、无高频细节、无岩石纹理。"
             "扁平平涂，几何化造型，矢量感干净边缘，大色块，单色平涂不做写实渐变，柔和环境光，"
             "旅行手账明信片质感，游戏美术资产，竖构图 9:16。"
         ),
         # 禁止项 = NEG_BASE_WT + 本帧增补（同上，逐字提取）
         neg_extra=(
-            "，无写实山脉照片，无岩石纹理，无雪地颗粒，无人物，无滑雪者，无登山者，无缆车车厢，"
-            "无索道支架，无小屋，无木屋，无树林，无针叶林细节，无瑞士十字，无镜头光晕，无太阳光束"
+            "，无金字塔，无埃及式三角几何体，无三角形纪念碑，无真实桥梁照片，无砖石纹理，"
+            "无铁轨枕木，无车窗细节，无人物，无瑞士十字，无镜头光晕，无太阳光束"
         ),
-        candidates=4, detail_level=5, guidance_scale=7.5,
-        note="云须真的切断山体",
+        candidates=5, detail_level=5, guidance_scale=7.5,
+        note="桥拱等距 + 红色列车醒目",
     ),
     dict(
         no=6, slug="xochimilco", region="amer", title="墨西哥·霍奇米尔科水乡",
@@ -288,7 +338,6 @@ def scale_only(im, tw: int, th: int):
     万一模型给了别的比例（历史上出现过），这里退化为 contain + 暖黑补边，
     宁可留边也不裁 —— 本批构图重心贴着中央 70%，裁切会直接吃掉主体。
     """
-    from PIL import Image
     w, h = im.size
     if (w, h) == (tw, th):
         return im
@@ -307,7 +356,6 @@ def flatten_on_ink(im):
     若有透明通道 → 合成到暖黑底 #1A1614（§C.5：底色换成本批的 L0 底，不是奶油底）。
     用 L0 同色而非黑：万一直出带了半透明边，合成结果与运行时 L0 底完全一致，不会显出接缝。
     """
-    from PIL import Image
     if im.mode != "RGBA":
         return im.convert("RGB")
     bg = Image.new("RGB", im.size, FLATTEN_BG)
@@ -359,49 +407,255 @@ def kb(path: Path) -> int:
     return (path.stat().st_size + 512) // 1024
 
 
-def render_one(gen, f: dict, out_dir: Path, candidates: int, seed):
-    """出一帧：候选全部落盘，候选 1 用主名，其余进 candidates/ 供人工换选。"""
-    from PIL import Image
+# ===================== 每日配额管理（核心）=====================
+class QuotaExhausted(Exception):
+    """当日所有模型免费额度已满，停止以避免触发付费额度。"""
+
+
+def today_key() -> str:
+    """系统日期（本地时区）YYYY-MM-DD。"""
+    return date.today().isoformat()
+
+
+def load_quota_state() -> dict:
+    """读取配额状态；文件不存在或损坏则回落空 dict。"""
+    if QUOTA_STATE_PATH.exists():
+        try:
+            return json.loads(QUOTA_STATE_PATH.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            print(f"  ⚠ 配额状态文件损坏，重建：{QUOTA_STATE_PATH}")
+    return {}
+
+
+def save_quota_state_atomic(state: dict):
+    """
+    原子落盘：先写同目录临时文件再 os.replace（rename 原子替换），
+    防并发/中断损坏 —— 中途崩溃最多留下一个 .tmp，不会写坏主文件。
+    """
+    tmp = QUOTA_STATE_PATH.with_suffix(QUOTA_STATE_PATH.suffix + ".tmp")
+    tmp.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(tmp, QUOTA_STATE_PATH)
+
+
+def ensure_today_seed(state: dict) -> bool:
+    """
+    初始化「今日」计数：保证今日键存在，并对缺失的模型按 QUOTA_SEED 播种。
+    返回是否发生了写入（调用方据此决定是否落盘）。
+    已存在的模型计数一律保留，不覆盖实测值。
+    """
+    today = today_key()
+    day = state.setdefault(today, {})
+    changed = False
+    for model, seed_val in QUOTA_SEED.items():
+        if model not in day:
+            day[model] = seed_val
+            changed = True
+    return changed
+
+
+def select_model(state: dict, num_images: int = 1) -> str | None:
+    """
+    选「优先级最高且当日 used + num_images ≤ 20」的模型；全部放不下则返回 None。
+    配额按「图」计（一次请求出 num_images 张），故需预留整批空间，避免越界触发付费。
+    优先级：MODEL_PRIORITY（5.0-pro → 5.0-lite → 4.5）。
+    """
+    today = today_key()
+    day = state.get(today, {})
+    for model in MODEL_PRIORITY:
+        if day.get(model, 0) + num_images <= DAILY_LIMIT:
+            return model
+    return None
+
+
+def increment_used(state: dict, model: str, num_images: int):
+    """请求成功：used += 本次图数(num_images)，并原子落盘。配额按「图」计。"""
+    today = today_key()
+    day = state.setdefault(today, {})
+    day[model] = day.get(model, 0) + num_images
+    save_quota_state_atomic(state)
+
+
+def simulate_allocation(state: dict, frames, candidates_fn):
+    """
+    dry-run 用：在不改动真实状态的前提下，模拟按「图」配额走完 frames，
+    返回 (每帧所选模型列表, 停止原因)。用于展示优先级与边界，不落盘。
+    """
+    today = today_key()
+    sim = {today: dict(state.get(today, {}))}  # 复制今日计数，避免污染真实状态
+    plan, stop = [], None
+    for f in frames:
+        c = candidates_fn(f)
+        m = select_model(sim, c)
+        if m is None:
+            stop = (f, c)
+            break
+        sim[today][m] = sim[today].get(m, 0) + c
+        plan.append((f, m, c))
+    return plan, stop
+
+
+# ===================== 水印去除（方案 A：柔边填充）=====================
+def watermark_bbox(w: int, h: int):
+    """右下角水印包围盒（含外扩余量）与 feather 半径。固定比例，基于 1080×1920。"""
+    bw = int(round(w * WM_RATIO_W)) + int(round(w * WM_MARGIN))
+    bh = int(round(h * WM_RATIO_H)) + int(round(h * WM_MARGIN))
+    x0 = max(0, w - bw)
+    y0 = max(0, h - bh)
+    feather = max(3, int(round(bw * WM_FEATHER_RATIO)))
+    return (x0, y0, w, h), feather
+
+
+def _sample_fill_color(im) -> tuple:
+    """
+    取底部、且避开右下角水印的区域的均值作为填充基准色（≈ L0 暖黑延展区）。
+    与本批「画面下方五分之二为低对比度暗色延展区」一致，填充后不穿帮。
+    再与 L0 暖黑混合，保证偏暗、稳妥。
+    """
+    w, h = im.size
+    region = im.crop((0, int(h * 0.86), int(w * 0.6), h)).convert("RGB")
+    mean = tuple(int(c) for c in region.resize((1, 1)).getpixel((0, 0)))
+    return tuple((a + b) // 2 for a, b in zip(FLATTEN_BG, mean))
+
+
+def remove_watermark(im):
+    """
+    去除 Seedream 出图右下角「AI生成」平台水印（方案 A）。
+    固定比例定位右下角包围盒 → 建硬 mask → 高斯模糊得到 feather 柔边 →
+    用 L0 暖黑 + 底部采样均值做整块填充，按 feather mask 合成，避免硬矩形穿帮。
+    """
+    if not HAVE_PIL:
+        raise RuntimeError(
+            "去水印需要 Pillow，但本机未安装。\n"
+            "请先安装：  pip install Pillow\n"
+            "（仅去水印/后处理需要；出图主体逻辑不依赖它。）"
+        )
+    w, h = im.size
+    (x0, y0, x1, y1), feather = watermark_bbox(w, h)
+    fill = _sample_fill_color(im)
+    mask = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(mask).rectangle([x0, y0, x1, y1], fill=255)
+    mask = mask.filter(ImageFilter.GaussianBlur(feather))  # 柔边 feather
+    layer = Image.new("RGB", (w, h), fill)
+    out = Image.composite(layer, im.convert("RGB"), mask)
+    return out
+
+
+def clean_existing(install_dir: Path):
+    """对已落盘 PNG 重做去水印（零 API 成本）。就地覆盖 + 重新 pngquant。"""
+    if not HAVE_PIL:
+        print("❌ 去水印需要 Pillow：pip install Pillow")
+        sys.exit(1)
+    if not install_dir.exists():
+        print(f"❌ 目录不存在：{install_dir}")
+        sys.exit(2)
+    pngs = sorted(p for p in install_dir.glob("*.png") if p.name != ".keep")
+    if not pngs:
+        print(f"无 PNG 可处理：{install_dir}")
+        return
+    print(f"— --clean-existing：对 {len(pngs)} 张已落盘 PNG 重做去水印（零 API 成本）—\n")
+    for p in pngs:
+        im = remove_watermark(Image.open(p).convert("RGB"))
+        im.save(str(p), "PNG")
+        q = quantize(p)
+        print(f"  ✅ 去水印 {p.name}  {im.size[0]}×{im.size[1]}  "
+              f"{kb(p)}KB{'（已量化）' if q else ''}")
+
+
+def render_one(gen, f: dict, out_dir: Path, candidates: int, seed, model: str, state: dict):
+    """出一帧：候选全部落盘，候选 1 用主名，其余进 candidates/ 供人工换选。
+    model：本次请求使用的模型 id（按配额/优先级选出）。
+    state：配额状态 dict（用于「按图计」扣减，避免越界触发付费）。
+
+    关于 candidates 与多图（Bug 1 修复点）：
+        4.5 的 images 接口支持单次 n 张；但 5.0 端点实测「不遵守 n」——
+        请求 num_images=5 只回 1 张（volcano_ark.py 不动，故在此补齐）。
+        因此先按 candidates 请求一次，若返回不足，再继续以 num_images=1
+        逐张补齐，直到拿满 candidates 张或 API 不再出图。
+        每张成功图按「图」计扣减 1 单位配额（先按实际返回，绝不预扣/超扣）。
+    """
     key = frame_key(f)
-    results = gen.generate(
-        f["prompt"],
-        negative_prompt=build_negative(f),
-        size=SIZE_MAP["wt"],
-        num_images=candidates,
-        seed=seed,
-        watermark=False,
-        style_strength=STYLE_STRENGTH,
-        detail_level=f["detail_level"],
-        guidance_scale=f["guidance_scale"],
-        # optimize_prompt_mode 刻意不传（§B.9）：平台改写会静默丢掉本批的高密度约束，
-        # 尤其帧 7 的朝向与帧 3 的零动物 —— 丢了不报错，等于白出。
-    )
-    if not results or not results[0].success:
-        msg = results[0].error_message if results else "无返回数据"
+    urls: list = []
+    first: list = []
+
+    def _grab(batch):
+        """把一批 ImageResult 中成功的图 URL 收进 urls，返回本次实际收到的张数。"""
+        n = 0
+        for r in batch:
+            if getattr(r, "success", False) and getattr(r, "image_url", None):
+                urls.append(r.image_url)
+                n += 1
+        return n
+
+    # 首次：仅批处理模型（4.5）尽量一次拿全；5.0 不支持批处理且 n>1 易超时，
+    # 直接走下方 while 循环逐张 n=1 请求。
+    if model in BATCH_CAPABLE:
+        first = gen.generate(
+            f["prompt"],
+            negative_prompt=build_negative(f),
+            size=SIZE_MAP["wt"],
+            num_images=candidates,
+            seed=seed,
+            watermark=False,
+            style_strength=STYLE_STRENGTH,
+            detail_level=f["detail_level"],
+            guidance_scale=f["guidance_scale"],
+            model=model,
+            # optimize_prompt_mode 刻意不传（§B.9）：平台改写会静默丢掉本批的高密度约束，
+            # 尤其帧 7 的朝向与帧 3 的零动物 —— 丢了不报错，等于白出。
+        )
+        _grab(first)
+    # 补齐：5.0 不遵守 n 时，逐张请求直到拿满 candidates（或 API 不再出图）
+    while len(urls) < candidates:
+        more = gen.generate(
+            f["prompt"],
+            negative_prompt=build_negative(f),
+            size=SIZE_MAP["wt"],
+            num_images=1,
+            seed=seed,
+            watermark=False,
+            style_strength=STYLE_STRENGTH,
+            detail_level=f["detail_level"],
+            guidance_scale=f["guidance_scale"],
+            model=model,
+        )
+        if not more or not getattr(more[0], "success", False) or not getattr(more[0], "image_url", None):
+            break
+        if _grab(more) == 0:
+            break
+
+    if not urls:
+        msg = (first[0].error_message
+               if (first and not getattr(first[0], "success", True)) else "无返回数据")
         print(f"  ❌ 失败：{msg}")
         return None
 
+    # 按图计扣减：实际拿到几张就记几张（main 已用 select_model(candidates) 预留额度，
+    # 此处不会超扣；若 API 给不满则按实际数记，绝不为没拿到的图付费）
+    increment_used(state, model, len(urls))
+
     saved = []
-    for i, r in enumerate(results, start=1):
-        if not r.success or not r.image_url:
-            continue
+    for i, url in enumerate(urls, start=1):
+        # 候选 1 用主名（可直接进游戏），其余进 candidates/ 供人工换选 —— 命名带序号，互不覆盖
         dest = out_dir / f"{key}.png" if i == 1 else out_dir / "candidates" / f"{key}_c{i}.png"
         tmp = out_dir / f".{key}_c{i}.raw"
         try:
-            download(r.image_url, tmp)
-            im = postprocess(Image.open(tmp).convert("RGBA"))
+            download(url, tmp)
+            im = remove_watermark(postprocess(Image.open(tmp).convert("RGBA")))
             dest.parent.mkdir(parents=True, exist_ok=True)
             im.save(str(dest), "PNG")
         finally:
             tmp.unlink(missing_ok=True)
-        q = quantize(dest)
+        q = quantize(dest)  # pngquant 压缩（缺失则跳过，不失败）
         size = kb(dest)
         flag = "" if size <= SIZE_BUDGET_KB else f"  ⚠ 超单帧体积门槛 {SIZE_BUDGET_KB}KB"
         tag = "主选" if i == 1 else f"候选{i}"
         print(f"  ✅ {tag}  {dest.relative_to(out_dir)}  {im.size[0]}×{im.size[1]}  "
               f"{size}KB{'（已量化）' if q else ''}{flag}")
         saved.append(dest)
-    return saved[0] if saved else None
+
+    if len(saved) < candidates:
+        print(f"  ⚠ 仅拿到 {len(saved)}/{candidates} 张候选（API 未给满，已按实际落盘，未超扣配额）")
+    return saved
 
 
 def main():
@@ -420,8 +674,32 @@ def main():
     ap.add_argument("--install", action="store_true",
                     help=f"出图后复制主选到 {INSTALL_DIR.relative_to(REPO_ROOT)}（本地预览用）")
     ap.add_argument("--dry-run", action="store_true",
-                    help="不调 API：打印 8 帧的落盘名 / 参数 / prompt 与负向长度，用于自检")
+                    help="不调 API：打印 8 帧的落盘名 / 参数 / prompt、模型优先级与配额选择、水印参数，用于自检")
+    ap.add_argument("--clean-existing", action="store_true",
+                    help=f"对已落盘 {INSTALL_DIR.relative_to(REPO_ROOT)}/*.png 重做去水印（零 API 成本）")
+    ap.add_argument("--force", action="store_true",
+                    help="确认调 API 出图（消耗免费/付费额度）；默认不生成，避免误触重出。"
+                         "安全模式 --dry-run / --clean-existing 无需此旗标")
     args = ap.parse_args()
+
+    # 安全模式（零 API）无需 --force：--dry-run 自检参数、--clean-existing 本地去水印。
+    # 真正调 API 出图必须显式 --force，避免误触重出消耗额度。
+    if not (args.force or args.dry_run or args.clean_existing or args.install):
+        print("⚠ 该脚本会调用图像生成 API（消耗免费/付费额度）出图。"
+              "默认不生成；如确要出图请加 --force（自检参数用 --dry-run，本地去水印用 --clean-existing，"
+              "本地安装用 --install，均无需 --force）。")
+        sys.exit(2)
+
+    # --clean-existing：纯本地后处理（零 API），不触碰未落盘的其它 PNG。
+    if args.clean_existing:
+        if args.dry_run:
+            print(f"[dry-run] --clean-existing 将处理目录：{INSTALL_DIR}")
+            for p in sorted(INSTALL_DIR.glob("*.png")):
+                if p.name != ".keep":
+                    print(f"    {p.name}")
+            return
+        clean_existing(INSTALL_DIR)
+        return
 
     todo = FRAMES
     if args.only:
@@ -434,20 +712,55 @@ def main():
 
     out_dir = Path(args.outdir)
 
+    # 配额状态：今日初始化（seed 4.5=20、5.0=1），文件不存在则新建。
+    state = load_quota_state()
+    if ensure_today_seed(state):
+        save_quota_state_atomic(state)
+
     if args.dry_run:
+        today = today_key()
+        first_c = (args.candidates or todo[0]["candidates"]) if todo else 1
+        chosen = select_model(state, first_c)
+        (wx0, wy0, wx1, wy1), wfeather = watermark_bbox(*TARGET["wt"])
         print(f"— DRY RUN：不调用 API，共 {len(todo)} 帧 —\n")
+        print(f"[配额] 状态文件：{QUOTA_STATE_PATH}")
+        print(f"[配额] 今日 {today}：{json.dumps(state.get(today, {}), ensure_ascii=False)}")
+        print(f"[配额] 每日上限 {DAILY_LIMIT}（张/图）；优先级 {MODEL_PRIORITY}")
+        print(f"[配额] 本次将选用模型（首帧 {first_c} 张）：{chosen}"
+              f"  （4.5 已 {state.get(today, {}).get(SEEDREAM_45, 0)}/{DAILY_LIMIT} → 跳过）")
+        print(f"[配额] 边界逻辑：每次请求前 select_model(num_images)，放不下则跳下一个；"
+              f"全部放不下 sys.exit(3)；请求成功 used += num_images（按图计），绝不裸调付费额度")
+        # 按图配额走完全部所选帧（不改动真实状态），演示边界
+        plan, stop = simulate_allocation(state, todo, lambda f: args.candidates or f["candidates"])
+        print(f"[配额·边界模拟] 按图配额走完所选 {len(todo)} 帧（不落盘）：")
+        for f, m, c in plan:
+            print(f"    [{f['no']:02d}] {f['slug']:12s} candidates={c:2d} → {m}")
+        if stop:
+            sf, sc = stop
+            print(f"    ⏹ 帧 {sf['no']:02d} {sf['slug']} 需 {sc} 张，所有模型免费额度均放不下 → "
+                  f"真实运行将 sys.exit(3) 停止（绝不付费）")
+        else:
+            print(f"    ✅ 所选帧均在免费额度内可分配")
+        print(f"[水印] 方案 A 柔边填充：包围盒=({wx0},{wy0})-({wx1},{wy1}) px @1080×1920，"
+              f"feather≈{wfeather}px，填充=L0{FLATTEN_BG}+底部采样均值")
+        print()
         total = 0
         for f in todo:
             c = args.candidates or f["candidates"]
             total += c
             neg = build_negative(f)
+            # 落盘候选命名（带序号，互不覆盖）：主选 {key}.png + candidates/{key}_c2..cN.png
+            names = [f"{frame_key(f)}.png"] + \
+                    [f"candidates/{frame_key(f)}_c{i}.png" for i in range(2, c + 1)]
             print(f"[{f['no']:02d}] {frame_key(f)}.png   {f['title']}  ({f['region']})")
             print(f"     size={SIZE_MAP['wt']}→{TARGET['wt'][0]}×{TARGET['wt'][1]}  "
                   f"candidates={c}  style_strength={STYLE_STRENGTH}  "
                   f"detail_level={f['detail_level']}  guidance_scale={f['guidance_scale']}")
             print(f"     prompt {len(f['prompt'])} 字 / negative {len(neg)} 字   · {f['note']}")
+            print(f"     落盘候选({c})：{'  '.join(names)}")
             print(f"     {f['prompt'][:56]}…\n")
-        print(f"合计将请求 {total} 张候选，落盘主选 {len(todo)} 张 → {out_dir}")
+        print(f"合计将请求 {total} 张候选（{len(todo)} 帧），落盘 {total} 张候选"
+              f"（主选 {len(todo)} 张 + 备选取 {total - len(todo)} 张）→ {out_dir}")
         return
 
     api_key = os.getenv("ARK_API_KEY", "")
@@ -456,22 +769,36 @@ def main():
               "\n   （只想自检 prompt 与参数，用 --dry-run，无需密钥）")
         sys.exit(1)
 
+    if not HAVE_PIL:
+        print("❌ 后处理 / 去水印需要 Pillow，但本机未安装。请先：\n"
+              "      pip install Pillow\n"
+              "   （仅后处理与去水印依赖它；出图主体逻辑不依赖。）")
+        sys.exit(1)
+
     gen = VolcanoArkGenerator(api_key=api_key)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     ok, fail, picks = 0, 0, []
     for f in todo:
         c = args.candidates or f["candidates"]
-        print(f"▶ [{f['no']:02d}] {frame_key(f)}  {f['title']}  "
+        # 每次真正发起请求前：选优先级最高且能放下本次 c 张的模型（按图计）
+        model = select_model(state, c)
+        if model is None:
+            print(f"❌ 今日所有模型免费额度均放不下本次 {c} 张（各上限 {DAILY_LIMIT}），"
+                  f"停止以避免触发付费额度。")
+            print(f"   配额状态：{json.dumps(state.get(today_key(), {}), ensure_ascii=False)}")
+            sys.exit(3)
+        print(f"▶ [{f['no']:02d}] {frame_key(f)}  {f['title']}  model={model}  "
               f"(candidates={c} detail={f['detail_level']} gs={f['guidance_scale']}) · {f['note']}")
         try:
-            pick = render_one(gen, f, out_dir, c, args.seed)
+            saved = render_one(gen, f, out_dir, c, args.seed, model=model, state=state)
         except Exception as e:
             print(f"  ❌ 异常：{e}")
-            pick = None
-        if pick:
+            saved = None
+        if saved:
             ok += 1
-            picks.append(pick)
+            picks.append(saved[0])  # 主选 = 候选 1
+            print(f"    配额 {model} → {state[today_key()][model]}/{DAILY_LIMIT}")
         else:
             fail += 1
 
@@ -483,8 +810,18 @@ def main():
     if args.install and picks:
         INSTALL_DIR.mkdir(parents=True, exist_ok=True)
         for p in picks:
-            shutil.copy2(p, INSTALL_DIR / p.name)
-        print(f"已复制 {len(picks)} 张到 {INSTALL_DIR}")
+            dst = INSTALL_DIR / p.name
+            # Bug 2 修复点：不再 shutil.copy2 原样复制。
+            # 从 output 取主选，重新跑一遍 postprocess（去水印 + 量化），
+            # 保证 game 目录产物一定是「去水印 + 压缩」（≤ ~1MB），与 output 当前状态无关，
+            # 也能自愈 output 里残留的带水印/未压缩候选。幂等：已处理过的图再跑一次无副作用。
+            im = remove_watermark(postprocess(Image.open(p).convert("RGBA")))
+            im.save(str(dst), "PNG")
+            q = quantize(dst)
+            size = kb(dst)
+            warn = "" if size <= 1024 else "  ⚠ 仍超 ~1MB（检查本机 pngquant）"
+            print(f"  已安装 {dst.name}  {size}KB{'（已量化）' if q else '（未量化!）'}{warn}")
+        print(f"已安装 {len(picks)} 张到 {INSTALL_DIR}")
         print("提示：assets/remote/ 只进 web 产物；wx 主包已在 build.mjs 排除，上线走 CDN。")
 
     print(f"\n完成：成功 {ok} / 失败 {fail}。输出目录：{out_dir}")
