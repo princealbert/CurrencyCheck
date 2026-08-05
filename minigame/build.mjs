@@ -108,7 +108,9 @@ async function buildWeb() {
     const html = readFileSync(distHtml, 'utf8').replace('src="dist/game.js"', 'src="game.js"');
     writeFileSync(distHtml, html);
   }
-  copyAssets('dist', true);
+  // web demo 不打包 assets/remote/（环游世界 8 帧名胜图，仅满收集才用，缺失有兜底渐变），
+  // 省 ~7.5MB 体积、避免与首屏图片抢带宽；wx 早已排除。
+  copyAssets('dist', false);
   console.log('[build] web → dist/game.js (iife)');
 }
 

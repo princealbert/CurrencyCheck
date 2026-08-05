@@ -40,6 +40,67 @@ const SCENE_OPTS: Record<string, SceneOpts> = {
  */
 const TOAST_ANCHOR_OFFSET = 44;
 
+/**
+ * 启动加载屏（loading-gate.md）：资产异步就位前显示，覆盖「几何占位→真图」的 messy 期。
+ * 纯 Canvas 2D，深品牌底 + 金币母题 + 进度条；progress（0..1）由 App.loadingProgress 传入。
+ */
+export function drawLoadingScreen(
+  ctx: Ctx2DLike,
+  vp: { w: number; h: number },
+  progress: number
+): void {
+  const W = vp.w;
+  const H = vp.h;
+  // 品牌深底
+  ctx.fillStyle = '#1A1614';
+  ctx.fillRect(0, 0, W, H);
+  // 顶部暖光（多层同心圆叠加近似径向渐变，避免依赖 createLinearGradient）
+  const glowY = H * 0.30;
+  for (let i = 4; i >= 1; i--) {
+    ctx.beginPath();
+    ctx.arc(W / 2, glowY, (Math.min(W, H) * 0.5 * i) / 4, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(224,177,94,${0.04 * i})`;
+    ctx.fill();
+  }
+
+  const cx = W / 2;
+  const coinY = H * 0.40;
+  const r = Math.min(W, H) * 0.13;
+  // 金币外环 + 内圈（抽象几何母题，非真实币种）
+  ctx.beginPath();
+  ctx.arc(cx, coinY, r, 0, Math.PI * 2);
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = THEME.gold;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx, coinY, r * 0.72, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(224,177,94,0.12)';
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(224,177,94,0.5)';
+  ctx.stroke();
+  text(ctx, '币', cx, coinY, { align: 'center', baseline: 'middle', size: Math.round(r * 0.7), weight: 'bold', color: THEME.gold });
+
+  text(ctx, '货币图鉴 · 对对碰', cx, H * 0.58, { align: 'center', baseline: 'middle', size: 22, weight: 'bold', color: '#F3EAD8' });
+  text(ctx, '正在整理周爷爷的钱币收藏册…', cx, H * 0.63, { align: 'center', baseline: 'middle', size: 13, color: 'rgba(243,234,216,0.6)' });
+
+  // 进度条
+  const barW = W * 0.6;
+  const barH = 8;
+  const barX = (W - barW) / 2;
+  const barY = H * 0.72;
+  roundRectPath(ctx, barX, barY, barW, barH, barH / 2);
+  ctx.fillStyle = 'rgba(243,234,216,0.14)';
+  ctx.fill();
+  const p = Math.max(0, Math.min(1, progress));
+  if (p > 0) {
+    roundRectPath(ctx, barX, barY, Math.max(barH, barW * p), barH, barH / 2);
+    ctx.fillStyle = THEME.gold;
+    ctx.fill();
+  }
+  text(ctx, Math.round(p * 100) + '%', cx, barY + barH + 18, { align: 'center', baseline: 'middle', size: 12, color: 'rgba(243,234,216,0.5)' });
+}
+
 function toVisual(card: {
   iso: string;
   region: any;

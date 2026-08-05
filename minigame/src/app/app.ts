@@ -52,7 +52,7 @@ import {
   tourPhaseAt,
 } from '../data/worldTour';
 import { IMAGES_BASE, SCENES_BASE } from '../config/cdn';
-import { drawApp } from '../render/renderer';
+import { drawApp, drawLoadingScreen } from '../render/renderer';
 import { boardLayout } from '../render/layout';
 import {
   ClearAnim,
@@ -78,6 +78,9 @@ import { HitTarget } from '../render/types';
 import { attachInput } from './input';
 
 const FLIP_MS = 300;
+
+/** 场景底图键（preloadScenes 与加载计数共用，loading-gate.md） */
+const SCENE_KEYS = ['scene_hub', 'scene_board', 'scene_codex', 'scene_detail', 'deco_globe'];
 /** toast 队列容量（§1.4） */
 const TOAST_QUEUE_MAX = 3;
 /** 胜利面板每颗星弹入间隔（§2.5） */
@@ -231,6 +234,17 @@ export class App {
   private lastVp = { w: 0, h: 0 };
   private lastTime = 0;
 
+  /** 启动加载门状态：资产异步就位前显示加载屏，就位后进入游戏 */
+  bootPhase: 'loading' | 'ready' = 'loading';
+  /** 预加载资产总数（母题 PNG + 场景底图），用于加载进度 */
+  private loadTotal = 0;
+  /** 已就位资产数（成功/失败都计，避免单张 404 卡死加载屏） */
+  private loadDone = 0;
+  /** 加载起始时刻（游戏时钟，ms） */
+  private loadStartedAt = 0;
+  /** 加载超时（ms）：弱网下宁可提前进游戏（几何占位兜底）也不无限转圈 */
+  private static readonly LOADING_TIMEOUT = 12000;
+
   constructor(platform: Platform) {
     this.platform = platform;
     this.ctx = platform.getContext();
@@ -247,6 +261,12 @@ export class App {
       this.meta.addPlayChapter('amer', 1);
     }
     attachInput(this);
+    // 启动加载门：先计数 + 异步预载；叙事触发延后到资产就位（launchNarrative）
+    // loadStartedAt 用单调时钟 platform.now()（与音频斜坡同基准），不依赖 gameTimeMs
+    // —— tick() 在加载期提前 return，gameTimeMs 不前进，若用它会令超时判定恒假。
+    this.loadStartedAt = this.platform.now();
+    this.loadTotal = CURRENCIES.length * FORM_FACTORS.length + SCENE_KEYS.length;
+    this.loadDone = 0;
     this.preloadImages();
     this.preloadScenes();
 
@@ -285,6 +305,14 @@ export class App {
       regionLabel: (region) => REGION_LABELS[region] ?? region,
     });
 
+  }
+
+  /**
+   * 加载完成后进入游戏：触发首开/回访叙事（原构造尾部逻辑，延后到资产就位）。
+   * 放在这里而非构造里，让「自动播放对话框」发生在真图已就位之后，
+   * 不再于占位图阶段突兀弹出（用户反馈：进场即自动播对话框观感差，loading-gate.md）。
+   */
+  private launchNarrative(): void {
     if (!this.meta.hasLaunchedBefore()) {
       this.meta.markLaunchedBefore();
       this.dialogue.trigger('S1_HUB_FIRST_OPEN');
@@ -296,6 +324,24 @@ export class App {
       const { consecutiveDays, daysSinceLastVisit } = this.meta.updateVisitTracking(today);
       this.dialogue.trigger('S1_HUB_RETURN', { consecutiveDays, daysSinceLastVisit });
       this.checkStreakMilestone(consecutiveDays);
+    }
+  }
+
+  /** 单张资产就位（成功或失败都计，失败也计以免 404 卡死加载屏） */
+  private onAssetSettled(): void {
+    this.loadDone++;
+    this.dirty = true;
+  }
+
+  /** 加载门推进：资产到齐或超时 → 进入游戏并触发叙事 */
+  private advanceBoot(): void {
+    if (this.bootPhase !== 'loading') return;
+    const settled = this.loadDone >= this.loadTotal;
+    const timedOut = this.platform.now() - this.loadStartedAt > App.LOADING_TIMEOUT;
+    if (settled || timedOut) {
+      this.bootPhase = 'ready';
+      this.dirty = true;
+      this.launchNarrative();
     }
   }
 
@@ -348,6 +394,12 @@ export class App {
 
   /** 每帧推进所有游戏时钟驱动的状态（§5.2） */
   private tick(dt: number): void {
+    // 启动加载门：未就位时只推进加载屏，不跑对局逻辑、不抢带宽预载 BGM
+    if (this.bootPhase === 'loading') {
+      this.advanceBoot();
+      this.dirty = true;
+      return;
+    }
     const t = this.gameTimeMs;
 
     // ① 错配翻回（替代 setTimeout；时钟与状态同源，无竞态）
@@ -463,6 +515,10 @@ export class App {
   private render(): void {
     this.platform.resetTransform();
     this.hitTargets = [];
+    if (this.bootPhase === 'loading') {
+      drawLoadingScreen(this.ctx, this.platform.getViewport(), this.loadingProgress);
+      return;
+    }
     drawApp(this, this.ctx, this.platform.getViewport(), this.platform.safeAreaInset, this.hitTargets);
   }
 
@@ -1010,6 +1066,11 @@ export class App {
     return this.meta.colorblind;
   }
 
+  /** 加载进度 0..1（供加载屏绘制；加载门就绪后恒为 1） */
+  get loadingProgress(): number {
+    return this.loadTotal > 0 ? Math.min(1, this.loadDone / this.loadTotal) : 1;
+  }
+
   toggleColorblind(): void {
     this.meta.setColorblind(!this.meta.colorblind);
     this.audio.play('sfx_ui_toggle'); // A3
@@ -1091,6 +1152,7 @@ export class App {
   }
 
   handleTap(x: number, y: number): void {
+    if (this.bootPhase === 'loading') return; // 加载期不响应输入
     // 逆序：后绘制的（上层）优先命中
     for (let i = this.hitTargets.length - 1; i >= 0; i--) {
       const t = this.hitTargets[i];
@@ -1128,10 +1190,11 @@ export class App {
           .loadImage(src)
           .then((img) => {
             this.images.set(key, img);
-            this.dirty = true;
+            this.onAssetSettled();
           })
           .catch(() => {
-            /* 资源缺失 → 几何占位，忽略 */
+            /* 资源缺失 → 几何占位；仍计为就位，避免卡死加载屏 */
+            this.onAssetSettled();
           });
       }
     }
@@ -1139,7 +1202,7 @@ export class App {
 
   /** 场景底图 / 装饰件预加载（scene-backgrounds-spec §4.1）；缺失 → drawBackdrop 兜底，忽略错误 */
   private preloadScenes(): void {
-    const keys = ['scene_hub', 'scene_board', 'scene_codex', 'scene_detail', 'deco_globe'];
+    const keys = SCENE_KEYS;
     const files: Record<string, string> = {
       scene_hub: SCENES_BASE + 'bg_hub.png',
       scene_board: SCENES_BASE + 'bg_board.png',
@@ -1149,15 +1212,16 @@ export class App {
     };
     for (const key of keys) {
       if (this.images.has(key)) continue;
-      this.platform
-        .loadImage(files[key])
-        .then((img) => {
-          this.images.set(key, img);
-          this.dirty = true;
-        })
-        .catch(() => {
-          /* 资源缺失 → L0 渐变兜底，忽略 */
-        });
+        this.platform
+          .loadImage(files[key])
+          .then((img) => {
+            this.images.set(key, img);
+            this.onAssetSettled();
+          })
+          .catch(() => {
+            /* 资源缺失 → L0 渐变兜底；仍计为就位，避免卡死加载屏 */
+            this.onAssetSettled();
+          });
     }
   }
 
