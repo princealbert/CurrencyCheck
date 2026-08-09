@@ -526,7 +526,7 @@ export class App {
 
   /** 当前是否处于「需要横屏」的玩法上下文：纸币（note）形态对局中。 */
   private wantLandscape(): boolean {
-    return this.view === 'scene_board' && this.form === 'note';
+    return this.view === 'pair' && this.form === 'note';
   }
 
   /** 当前设备方向是否符合当前玩法要求（方向门：true=可玩，false=显示引导页并冻结）。 */
