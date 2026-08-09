@@ -61,7 +61,7 @@ export function boardLayout(
   // 横屏（纸币 note 形态）采用更紧凑布局：外边距更小、顶栏更扁，把横向空间让给长条卡牌。
   // 竖屏沿用原参数，行为完全不变。
   const land = vp.w > vp.h;
-  const PAD_L = land ? 6 : PAD;
+  const PAD_L = land ? 10 : PAD;
   const TOPBAR_L = land ? 40 : TOPBAR_H;
   const areaX = safe.left + PAD_L;
   const areaY = safe.top + PAD_L + TOPBAR_L;
@@ -84,24 +84,42 @@ export function boardLayout(
     cardW = c;
     cardH = c;
   } else {
-    // note 2:1（卡面硬比例）+ 币外名称行（coin-redesign-spec §B4）：
-    // 横屏下名称行更扁（nameRatio 更小），让 2:1 卡面尽量展开。
-    const nameRatio = land ? 0.08 : 0.11;
-    const nameLo = land ? 9 : 11;
-    const nameHi = land ? 13 : 16;
-    cardW = (areaW - GAP * (COLS - 1)) / COLS;
-    nameH = clamp(cardW * nameRatio, nameLo, nameHi);
-    let faceH = cardW / 2;
-    let cellH = faceH + nameH;
-    if (cellH * ROWS + GAP * (ROWS - 1) > areaH) {
-      cellH = (areaH - GAP * (ROWS - 1)) / ROWS;
-      faceH = cellH - nameH;
-      cardW = faceH * 2;
+    if (land) {
+      // 横屏纸币：横向长条，尽量铺满横屏空间。
+      // 算法：以「高度优先铺满」为基准（cellH 取满 areaH），按 2.8:1 横向比例展开卡宽；
+      // 若此比例下 boardW 仍超出 areaW（极端多列），则改按宽算（卡略矮但铺满宽）。
+      // 效果：横屏 T3 高度铺满 100%、宽度大幅提升（对比旧 2:1 锁死约 60% 占宽）。
+      const RATIO = 2.8; // 横屏横向长条比例（纸币横放观感）
+      const nameRatio = 0.08, nameLo = 9, nameHi = 13;
+      let cellH = (areaH - GAP * (ROWS - 1)) / ROWS;
+      nameH = clamp(((areaW - GAP * (COLS - 1)) / COLS) * nameRatio, nameLo, nameHi);
+      let faceH = cellH - nameH;
+      cardW = faceH * RATIO;
+      if (cardW * COLS + GAP * (COLS - 1) > areaW) {
+        // 比例过大导致超宽 → 改按宽算，faceH 反推（卡变矮但铺满宽）
+        cardW = (areaW - GAP * (COLS - 1)) / COLS;
+        faceH = cardW / RATIO;
+        nameH = clamp(cardW * nameRatio, nameLo, nameHi);
+        cellH = faceH + nameH;
+      }
+      cardH = cellH; // rect.h 含名称行（命中区一并变高，对点按有利）
+    } else {
+      // 竖屏纸币：2:1 横向长条 + 币外名称行（coin-redesign-spec §B4），行为保持不变
+      const nameRatio = 0.11, nameLo = 11, nameHi = 16;
+      cardW = (areaW - GAP * (COLS - 1)) / COLS;
       nameH = clamp(cardW * nameRatio, nameLo, nameHi);
-      faceH = cellH - nameH;
-      cardW = faceH * 2;
+      let faceH = cardW / 2;
+      let cellH = faceH + nameH;
+      if (cellH * ROWS + GAP * (ROWS - 1) > areaH) {
+        cellH = (areaH - GAP * (ROWS - 1)) / ROWS;
+        faceH = cellH - nameH;
+        cardW = faceH * 2;
+        nameH = clamp(cardW * nameRatio, nameLo, nameHi);
+        faceH = cellH - nameH;
+        cardW = faceH * 2;
+      }
+      cardH = cellH;
     }
-    cardH = cellH; // rect.h 含名称行（命中区一并变高，对点按有利）
   }
 
   const boardW = cardW * COLS + GAP * (COLS - 1);
