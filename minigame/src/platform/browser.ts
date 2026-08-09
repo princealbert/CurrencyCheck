@@ -358,11 +358,15 @@ export class BrowserPlatform implements Platform {
     }
   }
 
-  /** 客户端坐标 → 逻辑像素（0..LOGICAL_W / 0..LOGICAL_H），兼容 CSS contain 缩放 */
+  /** 客户端坐标 → 逻辑像素，映射须与渲染坐标系一致（getViewport）：
+   *   - 竖屏：视口锁 390×844，rect 为 contain 缩放后的 CSS 尺寸 → 正确回映射到 390×844
+   *   - 横屏：视口返真实横屏尺寸 (innerW×innerH)，rect 铺满整屏 → 比例=1 直接对齐
+   * 之前写死 LOGICAL_W/H 会导致横屏 x 缩、y 放，触控整体错位（卡片/顶栏点不中）。 */
   private toLogical(clientX: number, clientY: number): { x: number; y: number } {
     const rect = this.canvas.getBoundingClientRect();
-    const sx = rect.width > 0 ? this.LOGICAL_W / rect.width : 1;
-    const sy = rect.height > 0 ? this.LOGICAL_H / rect.height : 1;
+    const vp = this.getViewport();
+    const sx = rect.width > 0 ? vp.w / rect.width : 1;
+    const sy = rect.height > 0 ? vp.h / rect.height : 1;
     return { x: (clientX - rect.left) * sx, y: (clientY - rect.top) * sy };
   }
 
