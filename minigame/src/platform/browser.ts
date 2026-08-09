@@ -275,7 +275,8 @@ export class BrowserPlatform implements Platform {
     const landscape = window.innerHeight < window.innerWidth;
     let bw: number, bh: number, cssW: number, cssH: number;
     if (landscape) {
-      // 横屏：画布铺满整屏，供「请竖屏」引导页覆盖全屏；游戏逻辑视口仍为 390×844，不受影响。
+      // 横屏：画布铺满整屏。逻辑视口由 getViewport 返回真实横屏尺寸（纸币 note 形态据此铺满绘制）；
+      // 硬币/Hub 等竖屏游戏在横屏时由 app.render 弹「请竖屏」引导页覆盖全屏。
       cssW = window.innerWidth;
       cssH = window.innerHeight;
       bw = Math.floor(cssW * dpr);
@@ -315,7 +316,11 @@ export class BrowserPlatform implements Platform {
   }
 
   getViewport(): { w: number; h: number } {
-    // 固定竖屏逻辑视口（与手机一致）；CSS contain 缩放只影响显示，不影响坐标体系
+    // 逻辑视口跟随真实显示尺寸：
+    //   - 竖屏：锁 390×844（信箱适配，与手机一致）
+    //   - 横屏：返回真实横屏逻辑尺寸，供纸币（note）形态按横屏铺满绘制
+    //     （硬币/Hub 等竖屏游戏在横屏时由 app.render 弹「请竖屏」引导页，不依赖本视口）
+    if (window.innerHeight < window.innerWidth) return { w: window.innerWidth, h: window.innerHeight };
     return { w: this.LOGICAL_W, h: this.LOGICAL_H };
   }
 
