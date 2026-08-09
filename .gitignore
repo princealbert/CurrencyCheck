@@ -23,6 +23,10 @@ assets/remote/
 # ===== world-tour raw BGM take candidates (~35MB generated, not shipped) =====
 minigame/assets/audio/bgm/bgm_tour_take*.mp3
 
+# ===== 压缩前母本备份（本地恢复用，非发布资产，勿入库） =====
+minigame/assets/_masters/
+minigame/assets/audio/_masters/
+
 # ===== 宣发物料：仅保留 *_clean.png（已去水印成品），原始出图不入库 =====
 promo/*.png
 !promo/*_clean.png

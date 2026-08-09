@@ -61,8 +61,10 @@ function copyAssets(destRel, withRemote) {
   //  1) assets/remote/             → 走 CDN（环游世界 8 帧名胜图，见 world-tour-assets §C.4.1）
   //  2) 命名含 backup（不区分大小写）→ 回滚保留的旧音效（_backup_wooden / sfx_backup_prelevel）
   //  3) bgm 目录下含 'take' 的文件  → 出曲候选中间产物（bgm_tour_take1..5 / take4_keep），非发布资产
+  //  4) _masters/ 目录             → 压缩前的原始母本备份（PNG/音频 masters），非发布资产
   const seg = (s) => s.split(sep).pop() || '';
-  const isExcluded = (s) => /backup/i.test(seg(s)) || /bgm_tour_take/i.test(seg(s));
+  const isExcluded = (s) =>
+    /backup/i.test(seg(s)) || /bgm_tour_take/i.test(seg(s)) || /_masters/i.test(seg(s));
   cpSync(src, dest, {
     recursive: true,
     filter: (s) =>

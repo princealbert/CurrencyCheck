@@ -51,7 +51,7 @@ import {
   tourFrameSrc,
   tourPhaseAt,
 } from '../data/worldTour';
-import { IMAGES_BASE, SCENES_BASE } from '../config/cdn';
+import { IMAGES_BASE, SCENES_BASE, AUDIO_ROOT } from '../config/cdn';
 import { drawApp, drawLoadingScreen } from '../render/renderer';
 import { boardLayout } from '../render/layout';
 import {
@@ -81,6 +81,9 @@ const FLIP_MS = 300;
 
 /** 场景底图键（preloadScenes 与加载计数共用，loading-gate.md） */
 const SCENE_KEYS = ['scene_hub', 'scene_board', 'scene_codex', 'scene_detail', 'deco_globe'];
+
+/** BGM 文件键（preloadAudio 与加载计数共用；4 个场景音乐并行预热进 HTTP 缓存） */
+const BGM_KEYS = ['hub', 'codex', 'match', 'tour'];
 /** toast 队列容量（§1.4） */
 const TOAST_QUEUE_MAX = 3;
 /** 胜利面板每颗星弹入间隔（§2.5） */
@@ -243,7 +246,7 @@ export class App {
   /** 加载起始时刻（游戏时钟，ms） */
   private loadStartedAt = 0;
   /** 加载超时（ms）：弱网下宁可提前进游戏（几何占位兜底）也不无限转圈 */
-  private static readonly LOADING_TIMEOUT = 12000;
+  private static readonly LOADING_TIMEOUT = 45000;
 
   constructor(platform: Platform) {
     this.platform = platform;
@@ -265,10 +268,12 @@ export class App {
     // loadStartedAt 用单调时钟 platform.now()（与音频斜坡同基准），不依赖 gameTimeMs
     // —— tick() 在加载期提前 return，gameTimeMs 不前进，若用它会令超时判定恒假。
     this.loadStartedAt = this.platform.now();
-    this.loadTotal = CURRENCIES.length * FORM_FACTORS.length + SCENE_KEYS.length;
+    // 加载计数含图片(母题+场景)与 BGM：资产就位前加载屏不进 Hub，叙事也不触发。
+    this.loadTotal = CURRENCIES.length * FORM_FACTORS.length + SCENE_KEYS.length + BGM_KEYS.length;
     this.loadDone = 0;
     this.preloadImages();
     this.preloadScenes();
+    this.preloadAudio();
 
     // 音频运行时：必须早于 DialogueEngine 建好 —— 首开/回访对白在构造末尾就会
     // 触发 toast，而 toast 起播会调用 audio.duckPush() / play()。
@@ -1222,6 +1227,20 @@ export class App {
             /* 资源缺失 → L0 渐变兜底；仍计为就位，避免卡死加载屏 */
             this.onAssetSettled();
           });
+    }
+  }
+
+  /**
+   * BGM 预加载：在加载屏期间并行 fetch 4 个场景音乐，预热进浏览器 HTTP 缓存。
+   * 这样 Hub 出现时 playBgm() 复用缓存、音乐即时起播，不再"进游戏才现下"。
+   * 成功/失败都计为就位（onAssetSettled），单文件异常不卡死加载屏。
+   */
+  private preloadAudio(): void {
+    for (const key of BGM_KEYS) {
+      const url = AUDIO_ROOT + `bgm/bgm_${key}.mp3`;
+      fetch(url)
+        .then(() => this.onAssetSettled())
+        .catch(() => this.onAssetSettled());
     }
   }
 
