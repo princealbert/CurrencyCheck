@@ -45,6 +45,24 @@ export function gap(cols: number): number {
 }
 
 /**
+ * 方向感知网格（横屏纸币关键修复）。
+ * note 形态的 cols/rows 互换是「为竖屏」设计的（横排更长、4列×6行）。
+ * 横屏游玩纸币时，把网格再互换回宽排（cols≥rows → 6列×4行），
+ * 让长条卡铺满横屏宽度、卡片更大；卡数不变（cols*rows 守恒，无空格）。
+ * coin 形态是竖屏游戏、横屏不渲染棋盘，故不参与互换。
+ */
+export function effectiveGrid(
+  grid: { cols: number; rows: number },
+  form: FormFactor,
+  orientation: 'portrait' | 'landscape'
+): { cols: number; rows: number } {
+  if (form === 'note' && orientation === 'landscape') {
+    return { cols: grid.rows, rows: grid.cols };
+  }
+  return grid;
+}
+
+/**
  * 计算棋盘布局（coin=近方；note=2:1 横向）。
  * cols/rows 由档位表注入（Phase1 §4.3），缺省 4×4 保持既有行为兼容。
  */

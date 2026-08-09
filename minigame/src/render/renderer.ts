@@ -9,7 +9,7 @@ import type { App } from '../app/app';
 import { STAR_POP_INTERVAL, STAR_POP_MS, STAR_SEQ_DELAY } from '../app/app';
 import { Ctx2DLike, SafeAreaInsets } from '../platform/types';
 import { THEME, REGION_COLORS, text, drawButton, fitText, wrapText, drawBackdrop, drawPanelSeam, withElevation, drawScene, SceneOpts, drawStar, roundRectPath } from './theme';
-import { boardLayout, Rect } from './layout';
+import { boardLayout, effectiveGrid, Rect } from './layout';
 import { drawCard } from './card';
 import { CardVisual } from './types';
 import { drawHub } from './hub';
@@ -191,7 +191,7 @@ function drawBoard(
   if (!app.match) return;
   /* 网格由**对数**推导（关卡文档 §4，chapters.gridForPairs），开局时算好存在 app.grid，
    * 与 app.fireBurst 同源 —— 单区 6 币也不会出现 6×6 空 12 格的不可读棋盘。 */
-  const grid = app.grid;
+  const grid = effectiveGrid(app.grid, app.form, app.platform.getOrientation());
   const layout = boardLayout(vp, safe, app.form, grid.cols, grid.rows);
   const pairs = app.match.cards.length / 2;
   const cb = app.colorblind;

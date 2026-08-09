@@ -53,7 +53,7 @@ import {
 } from '../data/worldTour';
 import { IMAGES_BASE, SCENES_BASE, AUDIO_ROOT } from '../config/cdn';
 import { drawApp, drawLoadingScreen, drawRotateOverlay } from '../render/renderer';
-import { boardLayout } from '../render/layout';
+import { boardLayout, effectiveGrid } from '../render/layout';
 import {
   ClearAnim,
   clearAnimAt,
@@ -1005,7 +1005,7 @@ export class App {
   private fireBurst(ia: number, ib: number, region: Region, unlock: boolean): void {
     if (!this.match) return;
     const vp = this.platform.getViewport();
-    const g = this.grid; // 当前局网格（chapterPlan 推导），与 renderer 同源
+    const g = effectiveGrid(this.grid, this.form, this.platform.getOrientation()); // 横屏纸币互换为宽排，与 renderer.drawBoard 同源
     const layout = boardLayout(vp, this.platform.safeAreaInset, this.form, g.cols, g.rows);
     const ra = layout.cards[ia];
     const rb = layout.cards[ib];
