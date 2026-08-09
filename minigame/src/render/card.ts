@@ -362,6 +362,26 @@ function drawMotifPlaceholder(
   ctx.restore();
 }
 
+/**
+ * 母题完整呈现（contain）：按目标框等比缩放、居中，绝不裁切。
+ * 用于横屏长条 note 卡的左侧方形母题库 —— 修原 drawCover 在 2.8:1 长条上
+ * 把方图按高撑满、左右裁掉导致「核心图案显示不完整」的问题。
+ */
+function drawMotifContain(
+  ctx: Ctx2DLike,
+  image: ImageLike | null | undefined,
+  x: number,
+  y: number,
+  w: number,
+  h: number
+): void {
+  if (!image || !image.width || !image.height) return;
+  const s = Math.min(w / image.width, h / image.height);
+  const dw = image.width * s;
+  const dh = image.height * s;
+  ctx.drawImage(image, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+}
+
 /* ---------------- 卡背 / 未解锁剪影 ---------------- */
 
 function drawBack(ctx: Ctx2DLike, rect: Rect, form: string): void {
@@ -760,34 +780,58 @@ function drawFaceNote(
     ctx.restore();
   }
 
-  // ② 印刷视窗放大到整个双细线内框（§D1），母题 cover 满铺（§D2，修拉伸 bug）
+  // ② 印刷视窗（§D1）。横屏长条 note 卡（rect.w ≫ rect.h）采用「名片」布局：
+  //    左侧方形母题库（母题 contain 完整呈现，不再被 cover 裁切）+ 右侧信息区
+  //    （区域徽标/币符/面值/ISO 小牌）。竖屏/近方 note 沿用整窗 cover 旧逻辑（零回归）。
   const bandX = ix + f2;
   const bandY = iy + f2;
   const bandW = iw - f2 * 2;
   const bandH = ih - f2 * 2;
+  const wide = rect.w > rect.h * 2.3; // 横屏长条卡（landscape note ≈2.45+，portrait note ≈1.8）
+  let motifX: number, motifY: number, motifW: number, motifH: number;
+  let infoX: number, infoW: number;
+  if (wide) {
+    const mMargin = bandH * 0.07;
+    motifH = bandH - mMargin * 2;
+    motifW = motifH;                                   // 左方形母题库（= 视窗高，保证母题完整、不缩水）
+    motifX = bandX + mMargin;
+    motifY = bandY + mMargin;
+    infoX = motifX + motifW + bandW * 0.015;
+    infoW = bandX + bandW - bandH * 0.07 - infoX;
+  } else {
+    motifX = bandX; motifY = bandY; motifW = bandW; motifH = bandH;
+    infoX = bandX; infoW = bandW;
+  }
+
+  // 母题区：签名色底 + 圆角裁切 + 母题 contain 完整呈现（修横屏 cover 左右裁切致图案不完整）
   ctx.save();
-  roundRectPath(ctx, bandX, bandY, bandW, bandH, bandH * 0.22);
+  roundRectPath(ctx, motifX, motifY, motifW, motifH, bandH * 0.22);
   ctx.clip();
   ctx.fillStyle = v.signature;
-  ctx.fillRect(bandX, bandY, bandW, bandH);
+  ctx.fillRect(motifX, motifY, motifW, motifH);
   if (image) {
     // 母题 PNG 仅在 loadImage 成功后才会被传进来（失败已在 app 层 catch 吞掉）
-    drawCover(ctx, image, bandX, bandY, bandW, bandH);
+    drawMotifContain(ctx, image, motifX, motifY, motifW, motifH);
   } else {
     // 缺图兜底与硬币形态同策略：区域形状 + 放大 glyph，双形态识别线索一致
-    drawMotifPlaceholder(
-      ctx,
-      v.region,
-      v.glyph,
-      v.motif,
-      bandX + bandW * 0.5,
-      bandY + bandH * 0.5,
-      Math.min(bandW, bandH) * 0.42
-    );
+    drawMotifPlaceholder(ctx, v.region, v.glyph, v.motif, motifX + motifW / 2, motifY + motifH / 2, Math.min(motifW, motifH) * 0.5);
   }
   ctx.restore();
 
-  // §5.6 印刷视窗描边：暗线压内侧 + 外侧纸色亮线 =「凹进纸面的印刷图版」
+  // 母题区描边（凹进纸面）；横屏名片卡另加此内描边，分隔母题库与信息区
+  ctx.save();
+  const mlw = Math.max(1, Math.min(1.5, motifH * 0.05));
+  roundRectPath(ctx, motifX + mlw / 2, motifY + mlw / 2, motifW - mlw, motifH - mlw, bandH * 0.22);
+  ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+  ctx.lineWidth = mlw;
+  ctx.stroke();
+  roundRectPath(ctx, motifX - 0.5, motifY - 0.5, motifW + 1, motifH + 1, bandH * 0.22 + 0.5);
+  ctx.strokeStyle = 'rgba(255,255,255,0.40)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
+
+  // §5.6 外层印刷视窗描边（整窗，暗线压内侧 + 外侧纸色亮线）
   ctx.save();
   const wlw = Math.max(1, Math.min(1.5, bandH * 0.05));
   roundRectPath(ctx, bandX + wlw / 2, bandY + wlw / 2, bandW - wlw, bandH - wlw, bandH * 0.22);
@@ -800,12 +844,19 @@ function drawFaceNote(
   ctx.stroke();
   ctx.restore();
 
-  // §5.3 ③ 色弱纹理带：铺在印刷视窗顶部（clip 到视窗圆角内），身份牌/徽标随后绘制其上
+  // 横屏名片卡：信息区铺极淡纸色，区分左右两栏
+  if (wide) {
+    roundRectPath(ctx, infoX, bandY, infoW, bandH, bandH * 0.18);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fill();
+  }
+
+  // §5.3 ③ 色弱纹理带：铺在（横屏=信息区 / 竖屏=整窗）顶部（clip 到圆角内），身份牌/徽标随后绘制其上
   if (cb) {
     ctx.save();
-    roundRectPath(ctx, bandX, bandY, bandW, bandH, bandH * 0.22);
+    roundRectPath(ctx, infoX, bandY, infoW, bandH, bandH * 0.18);
     ctx.clip();
-    drawRegionTexture(ctx, v.region, bandX, bandY, bandW, Math.max(6, bandH * 0.22));
+    drawRegionTexture(ctx, v.region, infoX, bandY, infoW, Math.max(6, bandH * 0.22));
     ctx.restore();
   }
 
@@ -813,38 +864,38 @@ function drawFaceNote(
   const tier = faceH >= NOTE_T3_H ? 3 : faceH >= NOTE_T2_H ? 2 : 1;
 
   if (tier >= 2) {
-    // ① 区域徽标：移入视窗右上角，奶油实心衬底（§D5，stamp=false）
+    // ① 区域徽标：信息区右上角，奶油实心衬底（§D5，stamp=false）
     const br = bandH * 0.17;
-    drawRegionBadge(ctx, v.region, bandX + bandW - bandH * 0.12 - br, bandY + bandH * 0.12 + br, br, false, cb);
+    drawRegionBadge(ctx, v.region, infoX + infoW - bandH * 0.12 - br, bandY + bandH * 0.12 + br, br, false, cb);
 
-    // ④ 面额 →「印压面值牌」：视窗右下角（§D3）
+    // ④ 面额 →「印压面值牌」：信息区右下角（§D3）
     drawNoteChip(
       ctx,
       v.denom + ' ' + v.denomSymbol,
       v.region,
       clamp(bandH * 0.34, 11, 20),
-      bandX,
+      infoX,
       bandY,
-      bandW,
+      infoW,
       bandH,
       'br'
     );
   }
   if (tier === 3) {
-    // ③ ISO →「印压身份牌」：视窗左上角，比面值牌小一档（§D4）
+    // ③ ISO →「印压身份牌」：信息区左上角，比面值牌小一档（§D4）
     // §5.3 ① 色弱：ISO 牌整体放大 ×1.25（牌高驱动字号，embossText 内部 fitText 兜底不溢出）
     const isoChipH = cb ? clamp(bandH * 0.28 * CB_ISO_SCALE, 11, 21) : clamp(bandH * 0.28, 10, 17);
-    drawNoteChip(ctx, v.iso, v.region, isoChipH, bandX, bandY, bandW, bandH, 'tl');
+    drawNoteChip(ctx, v.iso, v.region, isoChipH, infoX, bandY, infoW, bandH, 'tl');
   }
-  /* ② 币符角标：视窗右上，紧靠区域徽标左侧 —— 区域形状与币种形状并排成组，
+  /* ② 币符角标：信息区右上，紧靠区域徽标左侧 —— 区域形状与币种形状并排成组，
    *    「先看洲、再看币」两个纯形状通道一次读完。恒绘制（含 T1 微缩槽）。
-   *    衬盘半径按可用空间夹逼：右界=徽标左缘，左界=视窗 40% 处（护住 ISO 牌）。 */
+   *    衬盘半径按可用空间夹逼：右界=徽标左缘，左界=信息区 40% 处（护住 ISO 牌）。 */
   if (v.glyph) {
     const gbr = bandH * 0.17;                                   // 徽标半径（与上方一致）
-    const badgeCx = bandX + bandW - bandH * 0.12 - gbr;
+    const badgeCx = infoX + infoW - bandH * 0.12 - gbr;
     const rightLimit = tier >= 2 ? badgeCx - gbr - bandH * 0.05 // 徽标已画 → 让位
-                                 : bandX + bandW - bandH * 0.10; // T1 无徽标 → 直接占角
-    const leftLimit = bandX + bandW * 0.4;
+                                 : infoX + infoW - bandH * 0.10; // T1 无徽标 → 直接占角
+    const leftLimit = infoX + infoW * 0.4;
     const maxDisc = Math.max(0, (rightLimit - leftLimit) / 2);
     const gBase = bandH * 0.14;
     const wantDisc = Math.min((cb ? gBase * CB_GLYPH_SCALE : gBase) * GLYPH_DISC_K, maxDisc);
