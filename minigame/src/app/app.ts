@@ -1243,6 +1243,7 @@ export class App {
     const files: Record<string, string> = {
       scene_hub: SCENES_BASE + 'bg_hub.png',
       scene_board: SCENES_BASE + 'bg_board.png',
+      scene_board_land: SCENES_BASE + 'bg_board_land.png',
       scene_codex: SCENES_BASE + 'bg_codex.png',
       scene_detail: SCENES_BASE + 'bg_detail.png',
       deco_globe: SCENES_BASE + 'deco_globe.png',
@@ -1278,6 +1279,11 @@ export class App {
 
   /** 按视图取场景底图（scene-backgrounds-spec §4.2；与 imageFor 同构） */
   sceneFor(view: string): ImageLike | undefined {
+    // 纸币（note）对局 + 横屏：优先用横屏专用背景 bg_board_land（缺失则回退竖屏版，零回归）
+    if (view === 'pair' && this.form === 'note' && this.platform.getOrientation() === 'landscape') {
+      const land = this.images.get('scene_board_land');
+      if (land) return land;
+    }
     const map: Record<string, string> = {
       hub: 'scene_hub',
       pair: 'scene_board',

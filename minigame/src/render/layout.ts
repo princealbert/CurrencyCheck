@@ -58,16 +58,21 @@ export function boardLayout(
   const COLS = Math.max(1, Math.floor(cols));
   const ROWS = Math.max(1, Math.floor(rows));
   const GAP = gap(COLS);
-  const areaX = safe.left + PAD;
-  const areaY = safe.top + PAD + TOPBAR_H;
-  const areaW = vp.w - safe.left - safe.right - PAD * 2;
-  const areaH = vp.h - areaY - safe.bottom - PAD;
+  // 横屏（纸币 note 形态）采用更紧凑布局：外边距更小、顶栏更扁，把横向空间让给长条卡牌。
+  // 竖屏沿用原参数，行为完全不变。
+  const land = vp.w > vp.h;
+  const PAD_L = land ? 6 : PAD;
+  const TOPBAR_L = land ? 40 : TOPBAR_H;
+  const areaX = safe.left + PAD_L;
+  const areaY = safe.top + PAD_L + TOPBAR_L;
+  const areaW = vp.w - safe.left - safe.right - PAD_L * 2;
+  const areaH = vp.h - areaY - safe.bottom - PAD_L;
 
   const topBar: Rect = {
     x: safe.left,
     y: safe.top,
     w: vp.w - safe.left - safe.right,
-    h: TOPBAR_H,
+    h: TOPBAR_L,
   };
 
   let cardW: number;
@@ -80,16 +85,19 @@ export function boardLayout(
     cardH = c;
   } else {
     // note 2:1（卡面硬比例）+ 币外名称行（coin-redesign-spec §B4）：
-    // cell = faceH(2:1 卡面) + nameH；越界则按高反推并二次收敛（一轮即可，误差 < 1px）
+    // 横屏下名称行更扁（nameRatio 更小），让 2:1 卡面尽量展开。
+    const nameRatio = land ? 0.08 : 0.11;
+    const nameLo = land ? 9 : 11;
+    const nameHi = land ? 13 : 16;
     cardW = (areaW - GAP * (COLS - 1)) / COLS;
-    nameH = clamp(cardW * 0.11, 11, 16);
+    nameH = clamp(cardW * nameRatio, nameLo, nameHi);
     let faceH = cardW / 2;
     let cellH = faceH + nameH;
     if (cellH * ROWS + GAP * (ROWS - 1) > areaH) {
       cellH = (areaH - GAP * (ROWS - 1)) / ROWS;
       faceH = cellH - nameH;
       cardW = faceH * 2;
-      nameH = clamp(cardW * 0.11, 11, 16);
+      nameH = clamp(cardW * nameRatio, nameLo, nameHi);
       faceH = cellH - nameH;
       cardW = faceH * 2;
     }

@@ -65,6 +65,19 @@ SCENES = [
          neg_extra=(", no cards, no playing cards, no dice, no game pieces, no chips, no tokens, no board grid, "
                     "no pattern in the center, no fabric weave close-up, no strong wood grain lines, "
                     "no objects on the mat")),
+    dict(key="bg_board_land", kind="bg_land",
+         prompt=("Top-down illustration of a soft felt game mat laid on a warm wooden table, seen from directly "
+                 "above and in wide horizontal format; the felt mat spans the full width of the frame with a large "
+                 "calm even center and softly darker edges left and right, a subtle stitched border runs along the "
+                 "mat's outline, smooth bands of warm wood are visible at the left and right edges of the frame; "
+                 "flat geometric, minimal, clean vector-like, soft game-UI illustration, single flat color per "
+                 "object with one accent stroke, gentle ambient lighting, soft long shadows, no outline noise, "
+                 "game asset; warm cream #F8F5F0 and muted sage teal #87A878 felt, terracotta #D89575 stitching "
+                 "accent, warm gold #E0B15E hairline trim; extremely low contrast, quiet, almost empty in the "
+                 "center, horizontal 16:9 composition, no text, no letters, no numbers."),
+         neg_extra=(", no cards, no playing cards, no dice, no game pieces, no chips, no tokens, no board grid, "
+                    "no pattern in the center, no fabric weave close-up, no strong wood grain lines, "
+                    "no objects on the mat")),
     dict(key="bg_codex", kind="bg",
          prompt=("Front view illustration of a warm wooden bookcase interior, gentle and out of focus; "
                  "one soft horizontal shelf plank hinted near the very top edge and one near the very bottom "
@@ -105,8 +118,8 @@ SCENES = [
                     "no frame")),
 ]
 
-SIZE_MAP = {"bg": "9:16", "deco": "1k"}      # Seedream 直出尺寸
-TARGET = {"bg": (780, 1688), "deco": (512, 512)}  # 落盘尺寸
+SIZE_MAP = {"bg": "9:16", "deco": "1k", "bg_land": "16:9"}      # Seedream 直出尺寸
+TARGET = {"bg": (780, 1688), "deco": (512, 512), "bg_land": (1688, 780)}  # 落盘尺寸（横屏逻辑 844×390 @2x）
 
 
 def build_negative(s: dict) -> str:
