@@ -52,7 +52,7 @@ import {
   tourPhaseAt,
 } from '../data/worldTour';
 import { IMAGES_BASE, SCENES_BASE, AUDIO_ROOT } from '../config/cdn';
-import { drawApp, drawLoadingScreen } from '../render/renderer';
+import { drawApp, drawLoadingScreen, drawRotateOverlay } from '../render/renderer';
 import { boardLayout } from '../render/layout';
 import {
   ClearAnim,
@@ -375,6 +375,8 @@ export class App {
       this.lastVp = vp;
       this.dirty = true; // 旋转 / 尺寸变化 → 重算布局
     }
+    // 横屏切换：viewport 维度不变，仍须强制重绘引导页（render 靠 dirty 触发）
+    if (this.platform.getOrientation() === 'landscape') this.dirty = true;
     const now = this.platform.now();
     const rawDt = this.lastTime ? now - this.lastTime : 16;
     this.lastTime = now;
@@ -399,6 +401,8 @@ export class App {
 
   /** 每帧推进所有游戏时钟驱动的状态（§5.2） */
   private tick(dt: number): void {
+    // 横屏：暂停一切模拟，仅保留外部 loop 的 render 循环绘制「请竖屏」引导页
+    if (this.platform.getOrientation() === 'landscape') return;
     // 启动加载门：未就位时只推进加载屏，不跑对局逻辑、不抢带宽预载 BGM
     if (this.bootPhase === 'loading') {
       this.advanceBoot();
@@ -520,6 +524,12 @@ export class App {
   private render(): void {
     this.platform.resetTransform();
     this.hitTargets = [];
+    // 横屏：铺满全屏显示「请竖屏」引导页，不渲染游戏内容、不跑对局
+    if (this.platform.getOrientation() === 'landscape') {
+      const d = this.platform.getDeviceSize();
+      drawRotateOverlay(this.ctx, d.w, d.h);
+      return;
+    }
     if (this.bootPhase === 'loading') {
       drawLoadingScreen(this.ctx, this.platform.getViewport(), this.loadingProgress);
       return;
@@ -1157,6 +1167,7 @@ export class App {
   }
 
   handleTap(x: number, y: number): void {
+    if (this.platform.getOrientation() === 'landscape') return; // 横屏不响应输入
     if (this.bootPhase === 'loading') return; // 加载期不响应输入
     // 逆序：后绘制的（上层）优先命中
     for (let i = this.hitTargets.length - 1; i >= 0; i--) {

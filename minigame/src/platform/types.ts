@@ -127,6 +127,10 @@ export interface Platform {
   requestAnimationFrame(cb: (t: number) => void): number;
   /** 当前时间（ms） */
   now(): number;
+  /** 设备方向：web 端随旋转变化；wx 端受 game.json deviceOrientation 锁死，恒为 portrait */
+  getOrientation(): 'portrait' | 'landscape';
+  /** 设备实际显示尺寸（CSS 像素）：web 横屏时用于「请竖屏」引导页铺满全屏；wx 端=屏幕逻辑尺寸 */
+  getDeviceSize(): { w: number; h: number };
 }
 
 /** 由平台构造注入 CollectionStore 的极简 KV 后端 */

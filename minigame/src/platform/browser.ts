@@ -271,26 +271,34 @@ export class BrowserPlatform implements Platform {
   }
 
   private resize(): void {
-    // 1) backing store：仅在尺寸（受 dpr 影响）变化时重设，避免每次 resize 清空画布导致闪白。
-    //    正常窗口缩放只改 CSS 显示尺寸，不改变 backing store，故画布内容得以保留。
     const dpr = window.devicePixelRatio || 1;
-    const bw = Math.floor(this.LOGICAL_W * dpr);
-    const bh = Math.floor(this.LOGICAL_H * dpr);
+    const landscape = window.innerHeight < window.innerWidth;
+    let bw: number, bh: number, cssW: number, cssH: number;
+    if (landscape) {
+      // 横屏：画布铺满整屏，供「请竖屏」引导页覆盖全屏；游戏逻辑视口仍为 390×844，不受影响。
+      cssW = window.innerWidth;
+      cssH = window.innerHeight;
+      bw = Math.floor(cssW * dpr);
+      bh = Math.floor(cssH * dpr);
+    } else {
+      // 竖屏：backing store 锁 390×844×dpr；CSS 按 contain 适配窗口、保持竖屏比例（信箱黑边）。
+      bw = Math.floor(this.LOGICAL_W * dpr);
+      bh = Math.floor(this.LOGICAL_H * dpr);
+      const scale = Math.min(
+        window.innerWidth / this.LOGICAL_W,
+        window.innerHeight / this.LOGICAL_H
+      );
+      cssW = Math.round(this.LOGICAL_W * scale);
+      cssH = Math.round(this.LOGICAL_H * scale);
+    }
     if (this.canvas.width !== bw || this.canvas.height !== bh) {
       this.canvas.width = bw;
       this.canvas.height = bh;
       this.designDpr = dpr; // 与 backing store 同步，变换才正确
       this.applyDpr();
     }
-
-    // 2) CSS 显示尺寸：contain 适配窗口、保持竖屏比例；居中由 index.html 的 body flex 完成。
-    //    窗口留白即信箱黑边（body 背景），游戏内坐标体系恒为 390×844。
-    const scale = Math.min(
-      window.innerWidth / this.LOGICAL_W,
-      window.innerHeight / this.LOGICAL_H
-    );
-    this.canvas.style.width = Math.round(this.LOGICAL_W * scale) + 'px';
-    this.canvas.style.height = Math.round(this.LOGICAL_H * scale) + 'px';
+    this.canvas.style.width = cssW + 'px';
+    this.canvas.style.height = cssH + 'px';
   }
 
   private applyDpr(): void {
@@ -309,6 +317,14 @@ export class BrowserPlatform implements Platform {
   getViewport(): { w: number; h: number } {
     // 固定竖屏逻辑视口（与手机一致）；CSS contain 缩放只影响显示，不影响坐标体系
     return { w: this.LOGICAL_W, h: this.LOGICAL_H };
+  }
+
+  getOrientation(): 'portrait' | 'landscape' {
+    return window.innerHeight < window.innerWidth ? 'landscape' : 'portrait';
+  }
+
+  getDeviceSize(): { w: number; h: number } {
+    return { w: window.innerWidth, h: window.innerHeight };
   }
 
   loadImage(src: string): Promise<ImageLike> {

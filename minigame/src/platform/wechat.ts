@@ -209,6 +209,16 @@ export class WechatPlatform implements Platform {
     return { w: info.screenWidth, h: info.screenHeight };
   }
 
+  getOrientation(): 'portrait' | 'landscape' {
+    // 微信受 game.json deviceOrientation:portrait 锁死，永不横屏
+    return 'portrait';
+  }
+
+  getDeviceSize(): { w: number; h: number } {
+    const info = getWindowInfo();
+    return { w: info.screenWidth, h: info.screenHeight };
+  }
+
   loadImage(src: string): Promise<ImageLike> {
     return new Promise((resolve, reject) => {
       const img = wx.createImage();

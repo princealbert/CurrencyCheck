@@ -101,6 +101,61 @@ export function drawLoadingScreen(
   text(ctx, Math.round(p * 100) + '%', cx, barY + barH + 18, { align: 'center', baseline: 'middle', size: 12, color: 'rgba(243,234,216,0.5)' });
 }
 
+/** 横屏「请竖屏」引导页：品牌深底 + 旋转手机图标 + 文案，铺满全屏（w/h 为设备 CSS 像素）。 */
+export function drawRotateOverlay(ctx: Ctx2DLike, w: number, h: number): void {
+  // 品牌深底
+  ctx.fillStyle = '#1A1614';
+  ctx.fillRect(0, 0, w, h);
+
+  const cx = w / 2;
+  const cy = h / 2 - Math.min(w, h) * 0.04;
+  const unit = Math.min(w, h);
+  const phoneW = unit * 0.16;
+  const phoneH = phoneW * 1.9;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // 旋转环箭头（提示把设备转正）
+  const ringR = phoneH * 0.72;
+  ctx.strokeStyle = '#F3E9D8';
+  ctx.lineWidth = Math.max(2, unit * 0.006);
+  ctx.beginPath();
+  ctx.arc(0, 0, ringR, Math.PI * 0.35, Math.PI * 1.65);
+  ctx.stroke();
+  const aHead = Math.PI * 1.65;
+  const hx = Math.cos(aHead) * ringR;
+  const hy = Math.sin(aHead) * ringR;
+  const tang = aHead + Math.PI / 2;
+  const ah = Math.max(6, unit * 0.022);
+  ctx.beginPath();
+  ctx.moveTo(hx, hy);
+  ctx.lineTo(hx - Math.cos(tang - 0.5) * ah, hy - Math.sin(tang - 0.5) * ah);
+  ctx.lineTo(hx - Math.cos(tang + 0.5) * ah, hy - Math.sin(tang + 0.5) * ah);
+  ctx.closePath();
+  ctx.fillStyle = '#F3E9D8';
+  ctx.fill();
+
+  // 竖向手机轮廓（目标姿态）
+  ctx.strokeStyle = THEME.gold;
+  ctx.lineWidth = Math.max(2, phoneW * 0.09);
+  roundRectPath(ctx, -phoneW / 2, -phoneH / 2, phoneW, phoneH, phoneW * 0.18);
+  ctx.stroke();
+  // 听筒提示
+  ctx.fillStyle = THEME.gold;
+  ctx.fillRect(-phoneW * 0.26, -phoneH * 0.1, phoneW * 0.52, phoneH * 0.05);
+
+  ctx.restore();
+
+  // 文案
+  text(ctx, '请将手机竖屏', cx, cy + phoneH * 0.95, {
+    align: 'center', baseline: 'middle', size: Math.round(unit * 0.058), weight: 'bold', color: THEME.gold,
+  });
+  text(ctx, '以获得最佳体验', cx, cy + phoneH * 0.95 + unit * 0.085, {
+    align: 'center', baseline: 'middle', size: Math.round(unit * 0.042), color: 'rgba(243,233,216,0.7)',
+  });
+}
+
 function toVisual(card: {
   iso: string;
   region: any;
