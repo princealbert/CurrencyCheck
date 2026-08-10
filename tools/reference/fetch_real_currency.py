@@ -65,23 +65,23 @@ USER_AGENT = "Mozilla/5.0 (CurrencyCheck reference fetcher; educational, non-com
 CURRENCY_SPECS = [
     dict(iso="USD", denom="100", region="amer",
          motif="portrait", kw="富兰克林人像圆章 / 独立厅建筑",
-         note_obverse="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c9/US_%24100_obverse.jpg/640px-US_%24100_obverse.jpg",
-         note_reverse="https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/US_%24100_reverse.jpg/640px-US_%24100_reverse.jpg",
+         note_obverse="USA 100 Dollar Bill Series2009 Obverse.png",
+         note_reverse="US_$100_reverse.jpg",
          coin_obverse="", coin_reverse=""),  # 无 $100 流通硬币
     dict(iso="BRL", denom="10", region="amer",
          motif="animal", kw="绿翅金刚鹦鹉 / 共和国女神雕塑",
-         note_obverse="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Brazil_10_reais_front.jpg/640px-Brazil_10_reais_front.jpg",
-         note_reverse="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/Brazil_10_reais_back.jpg/640px-Brazil_10_reais_back.jpg",
+         note_obverse="10 Reais (2010) - Vorderseite.jpg",
+         note_reverse="10 Reais (2010) - Rückseite.jpg",
          coin_obverse="", coin_reverse=""),  # 无 R$10 流通硬币
     dict(iso="EUR", denom="20", region="euro",
          motif="architecture", kw="哥特式窗拱 / 哥特式桥（虚构建筑）",
-         note_obverse="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Euro_banknote_20_euro_reverse.jpg/640px-Euro_banknote_20_euro_reverse.jpg",
-         note_reverse="https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/20_euro_back.png/640px-20_euro_back.png",
+         note_obverse="The Europa series 20 € obverse side.jpg",
+         note_reverse="The Europa series 20 € reverse side.jpg",
          coin_obverse="", coin_reverse=""),  # 无 €20 硬币
     dict(iso="GBP", denom="20", region="euro",
          motif="portrait", kw="透纳自画像 / 战舰无畏号",
-         note_obverse="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/UK_20_pound_note_obverse.jpg/640px-UK_20_pound_note_obverse.jpg",
-         note_reverse="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/UK_20_pound_note_reverse.jpg/640px-UK_20_pound_note_reverse.jpg",
+         note_obverse="White-note-20-pounds-1934.jpg",  # 现代£20无自由许可图，暂用老版白条单面参考
+         note_reverse="",
          coin_obverse="", coin_reverse=""),  # 无 £20 流通硬币
     dict(iso="CNY", denom="100", region="asia_afr",
          motif="portrait", kw="毛泽东人像圆章 / 人民大会堂",
@@ -89,18 +89,17 @@ CURRENCY_SPECS = [
          coin_obverse="", coin_reverse=""),
     dict(iso="JPY", denom="1000", region="asia_afr",
          motif="landscape", kw="北里柴三郎人像 / 神奈川冲浪里",
-         note_obverse="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Japan_1000_yen_note.jpg/640px-Japan_1000_yen_note.jpg",
-         note_reverse="",  # 反面上浪里图多在版权图，留空
+         note_obverse="1000 yen banknote (Series E), obverse.png",
+         note_reverse="1000 yen banknote (Series E), reverse.png",
          coin_obverse="", coin_reverse=""),
     dict(iso="INR", denom="100", region="asia_afr",
          motif="portrait", kw="甘地人像圆章 / Rani ki Vav 阶梯井",
-         note_obverse="https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/India_100_rupees_front.jpg/640px-India_100_rupees_front.jpg",
-         note_reverse="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/India_100_rupees_back.jpg/640px-India_100_rupees_back.jpg",
+         note_obverse="India 100 Rupees 1981 front.jpg",
+         note_reverse="India 100 Rupees 1981 back.jpg",
          coin_obverse="", coin_reverse=""),  # 有 ₹100 硬币但少见，留空
     dict(iso="ZAR", denom="10", region="asia_afr",
          motif="animal", kw="曼德拉人像 / 白犀牛（Big Five）",
-         note_obverse="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/South_Africa_10_rand_obverse.jpg/640px-South_Africa_10_rand_obverse.jpg",
-         note_reverse="https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/South_Africa_10_rand_reverse.jpg/640px-South_Africa_10_rand_reverse.jpg",
+         note_obverse="", note_reverse="",  # 暂未找到自由许可兰特图，留空待人工补链接
          coin_obverse="", coin_reverse=""),
 ]
 
@@ -111,16 +110,28 @@ SIDE_LABEL = {
 }
 
 
-def _safe_get(url: str, dest: Path, timeout: int = 30) -> bool:
-    """下载单图；失败返回 False 不抛。"""
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        with urllib.request.urlopen(req, timeout=timeout) as resp, open(dest, "wb") as f:
-            shutil.copyfileobj(resp, f)
-        return dest.stat().st_size > 1024
-    except Exception as e:  # noqa: BLE001
-        sys.stderr.write(f"  ! 下载失败 {url[:80]}…：{e}\n")
-        return False
+def _safe_get(url: str, dest: Path, timeout: int = 30, retries: int = 4) -> bool:
+    """下载单图；遇 429 限速自动退避重试；其他失败返回 False 不抛。"""
+    import time
+    from urllib.error import HTTPError
+    for attempt in range(retries):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+            with urllib.request.urlopen(req, timeout=timeout) as resp, open(dest, "wb") as f:
+                shutil.copyfileobj(resp, f)
+            return dest.stat().st_size > 1024
+        except HTTPError as e:
+            if e.code == 429 and attempt < retries - 1:
+                wait = 3 * (attempt + 1)
+                sys.stderr.write(f"  · 429 限速，{wait}s 后重试 {url[:60]}…\n")
+                time.sleep(wait)
+                continue
+            sys.stderr.write(f"  ! 下载失败 {url[:80]}…：{e}\n")
+            return False
+        except Exception as e:  # noqa: BLE001
+            sys.stderr.write(f"  ! 下载失败 {url[:80]}…：{e}\n")
+            return False
+    return False
 
 
 def _dominant_color(path: Path) -> str | None:
@@ -147,13 +158,19 @@ def cmd_download(iso_filter: str | None):
         if iso_filter and spec["iso"] != iso_filter:
             continue
         for side in SIDES:
-            url = spec.get(side, "")
-            if not url:
+            raw = spec.get(side, "")
+            if not raw:
                 continue
+            if raw.startswith("http"):
+                url = raw
+            else:
+                # 存的是维基文件名 -> 走 Special:FilePath 重定向（自动解析正确 hash 目录 + 尺寸）
+                from urllib.parse import quote
+                url = "https://commons.wikimedia.org/wiki/Special:FilePath/" + quote(raw) + "?width=1000"
             d = RAW_DIR / spec["iso"] / side
             d.mkdir(parents=True, exist_ok=True)
             # 同币种多个面共用一张维基图时按 side 命名，避免覆盖
-            ext = ".png" if "png" in url.split("?")[0] else ".jpg"
+            ext = ".png" if raw.lower().endswith(".png") else ".jpg"
             dest = d / f"{spec['iso']}_{spec['denom']}_{side}{ext}"
             total += 1
             if dest.exists():
@@ -163,6 +180,8 @@ def cmd_download(iso_filter: str | None):
             if _safe_get(url, dest):
                 ok += 1
                 print(f"  ✓ {spec['iso']} {SIDE_LABEL[side]}")
+            import time
+            time.sleep(1.2)  # 全局降速，避免触发维基 429
     print(f"\n下载完成：{ok}/{total} 成功（raw/ 已被 gitignore，不进仓库）")
 
 

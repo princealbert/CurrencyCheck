@@ -1,0 +1,160 @@
+{
+  "USD": {
+    "iso": "USD",
+    "denom": "100",
+    "region": "amer",
+    "motif": "portrait",
+    "kw": "富兰克林人像圆章 / 独立厅建筑",
+    "sides": {
+      "note_obverse": {
+        "present": true,
+        "files": [
+          "USD_100_note_obverse.png"
+        ],
+        "dominant_color": "#B4C1BC",
+        "label": "纸币正面"
+      },
+      "note_reverse": {
+        "present": true,
+        "files": [
+          "USD_100_note_reverse.jpg"
+        ],
+        "dominant_color": "#E3E1C8",
+        "label": "纸币反面"
+      }
+    }
+  },
+  "BRL": {
+    "iso": "BRL",
+    "denom": "10",
+    "region": "amer",
+    "motif": "animal",
+    "kw": "绿翅金刚鹦鹉 / 共和国女神雕塑",
+    "sides": {
+      "note_obverse": {
+        "present": true,
+        "files": [
+          "BRL_10_note_obverse.jpg"
+        ],
+        "dominant_color": "#B5B4B0",
+        "label": "纸币正面"
+      },
+      "note_reverse": {
+        "present": true,
+        "files": [
+          "BRL_10_note_reverse.jpg"
+        ],
+        "dominant_color": "#9FA3A2",
+        "label": "纸币反面"
+      }
+    }
+  },
+  "EUR": {
+    "iso": "EUR",
+    "denom": "20",
+    "region": "euro",
+    "motif": "architecture",
+    "kw": "哥特式窗拱 / 哥特式桥（虚构建筑）",
+    "sides": {
+      "note_obverse": {
+        "present": true,
+        "files": [
+          "EUR_20_note_obverse.jpg"
+        ],
+        "dominant_color": "#E6E0CA",
+        "label": "纸币正面"
+      },
+      "note_reverse": {
+        "present": true,
+        "files": [
+          "EUR_20_note_reverse.jpg"
+        ],
+        "dominant_color": "#ECE6D0",
+        "label": "纸币反面"
+      }
+    }
+  },
+  "GBP": {
+    "iso": "GBP",
+    "denom": "20",
+    "region": "euro",
+    "motif": "portrait",
+    "kw": "透纳自画像 / 战舰无畏号",
+    "sides": {
+      "note_obverse": {
+        "present": true,
+        "files": [
+          "GBP_20_note_obverse.jpg"
+        ],
+        "dominant_color": "#DBDBDB",
+        "label": "纸币正面"
+      }
+    }
+  },
+  "CNY": {
+    "iso": "CNY",
+    "denom": "100",
+    "region": "asia_afr",
+    "motif": "portrait",
+    "kw": "毛泽东人像圆章 / 人民大会堂",
+    "sides": {}
+  },
+  "JPY": {
+    "iso": "JPY",
+    "denom": "1000",
+    "region": "asia_afr",
+    "motif": "landscape",
+    "kw": "北里柴三郎人像 / 神奈川冲浪里",
+    "sides": {
+      "note_obverse": {
+        "present": true,
+        "files": [
+          "JPY_1000_note_obverse.png"
+        ],
+        "dominant_color": "#D5C1B1",
+        "label": "纸币正面"
+      },
+      "note_reverse": {
+        "present": true,
+        "files": [
+          "JPY_1000_note_reverse.png"
+        ],
+        "dominant_color": "#DAC4B3",
+        "label": "纸币反面"
+      }
+    }
+  },
+  "INR": {
+    "iso": "INR",
+    "denom": "100",
+    "region": "asia_afr",
+    "motif": "portrait",
+    "kw": "甘地人像圆章 / Rani ki Vav 阶梯井",
+    "sides": {
+      "note_obverse": {
+        "present": true,
+        "files": [
+          "INR_100_note_obverse.jpg"
+        ],
+        "dominant_color": "#857F72",
+        "label": "纸币正面"
+      },
+      "note_reverse": {
+        "present": true,
+        "files": [
+          "INR_100_note_reverse.jpg"
+        ],
+        "dominant_color": "#908F83",
+        "label": "纸币反面"
+      }
+    }
+  },
+  "ZAR": {
+    "iso": "ZAR",
+    "denom": "10",
+    "region": "asia_afr",
+    "motif": "animal",
+    "kw": "曼德拉人像 / 白犀牛（Big Five）",
+    "sides": {}
+  }
+}
