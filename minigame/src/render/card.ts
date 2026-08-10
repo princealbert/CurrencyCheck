@@ -791,13 +791,15 @@ function drawFaceNote(
   let motifX: number, motifY: number, motifW: number, motifH: number;
   let infoX: number, infoW: number;
   if (wide) {
-    const mMargin = bandH * 0.07;
-    motifH = bandH - mMargin * 2;
-    motifW = motifH;                                   // 左方形母题库（= 视窗高，保证母题完整、不缩水）
-    motifX = bandX + mMargin;
-    motifY = bandY + mMargin;
-    infoX = motifX + motifW + bandW * 0.015;
-    infoW = bandX + bandW - bandH * 0.07 - infoX;
+    // 真实纸币是 2:1 宽条：在卡内竖向铺满（contain 到高）完整呈现并最大化；
+    // 信息牌（区域徽标/币符/面值/ISO）浮于整卡四角，不再挤占母题空间。
+    const mMarginY = bandH * 0.04;
+    motifH = bandH - mMarginY * 2;
+    motifW = motifH * 2;                                // 2:1 纸币比例
+    motifX = bandX + (bandW - motifW) / 2;              // 水平居中（两侧留少量纸边）
+    motifY = bandY + mMarginY;
+    infoX = bandX;                                      // 信息牌浮于整卡（覆盖 motif）
+    infoW = bandW;
   } else {
     motifX = bandX; motifY = bandY; motifW = bandW; motifH = bandH;
     infoX = bandX; infoW = bandW;
@@ -844,14 +846,9 @@ function drawFaceNote(
   ctx.stroke();
   ctx.restore();
 
-  // 横屏名片卡：信息区铺极淡纸色，区分左右两栏
-  if (wide) {
-    roundRectPath(ctx, infoX, bandY, infoW, bandH, bandH * 0.18);
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.fill();
-  }
+  // 横屏纸币：母题已铺满整卡作为主视觉，信息牌浮于四角，不再铺白底分隔栏
 
-  // §5.3 ③ 色弱纹理带：铺在（横屏=信息区 / 竖屏=整窗）顶部（clip 到圆角内），身份牌/徽标随后绘制其上
+  // §5.3 ③ 色弱纹理带：铺在（横屏=整窗 / 竖屏=整窗）顶部（clip 到圆角内），身份牌/徽标随后绘制其上
   if (cb) {
     ctx.save();
     roundRectPath(ctx, infoX, bandY, infoW, bandH, bandH * 0.18);

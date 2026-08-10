@@ -42,6 +42,10 @@ __pycache__/
 tools/image_generator/.quota_state.json
 tools/image_generator/output/
 
+# ===== 真实货币参考图（合规隔离：原始图二进制绝不进仓库/不进游戏包） =====
+# 下载的真实钞币/硬币图只留本地调研用；结构化特征(取色/关键词)已抽进 references.json 可入库。
+tools/reference/raw/
+
 # ===== OS / editor cruft =====
 .DS_Store
 Thumbs.db
